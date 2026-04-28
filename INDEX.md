@@ -88,9 +88,9 @@ Step 1 — Gesture scaffold    [x] Copy bowl files, add pinch detection
 Step 2 — Physics scene       [x] Matter.js world, click-to-launch
 Step 3 — Gesture → physics   [x] Pinch wired to launch
 Step 4 — UI screens          [x] All screens built from tokens
-Step 5 — Integration         [ ] State machine wires UI to game
+Step 5 — Integration         [x] State machine wires UI to game
 Step 6 — Visual pass         [ ] Sprites, VFX, webcam window
-Step 7 — Levels              [ ] All 5 levels loaded and playable
+Step 7 — Levels              [x] All 5 levels loaded and playable
 Step 8 — Audio               [ ] All sounds wired to events
 ```
 

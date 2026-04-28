@@ -533,6 +533,7 @@ export function createPhysicsScene(level) {
     subState: "READY",
     statusText: "WAITING FOR PINCH INPUT. MOUSE DRAG IS STILL AVAILABLE.",
     inputMode: "GESTURE",
+    outcomeHandled: false,
     settleFrames: 0,
     launchStartedAt: 0,
     activeTimers: new Set(),

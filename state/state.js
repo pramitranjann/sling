@@ -68,6 +68,16 @@ export function persistSave() {
   state.saveExists = true;
 }
 
+export function writeSave(levelId, stars, score) {
+  const existing = getLevelRecord(levelId);
+  state.save.levels[levelId] = {
+    completed: true,
+    stars: Math.max(existing.stars, stars),
+    highScore: Math.max(existing.highScore, score),
+  };
+  persistSave();
+}
+
 export function ensureSaveExists() {
   if (!state.saveExists) {
     persistSave();

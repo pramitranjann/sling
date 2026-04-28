@@ -7,7 +7,7 @@ function markup() {
         <div class="stripe"></div>
         <section class="screen-panel screen-panel--home">
           <div class="screen-panel__hero">
-            <span class="eyebrow">DEMOLITION TRAINING / STEP 4 UI SCREENS</span>
+            <span class="eyebrow">DEMOLITION TRAINING / STATE LINKED BUILD</span>
             <h1 class="hero-title">SLING.</h1>
             <p class="hero-copy">
               A webcam-controlled demolition ritual built in black hazard bars, draft paper grid,
@@ -248,6 +248,7 @@ export function initScreens(callbacks) {
     completeScore: document.getElementById("completeScore"),
     completePar: document.getElementById("completePar"),
     completeBonus: document.getElementById("completeBonus"),
+    completeNextBtn: document.getElementById("completeNextBtn"),
     failLevelLabel: document.getElementById("failLevelLabel"),
     failPigsRemaining: document.getElementById("failPigsRemaining"),
     failScore: document.getElementById("failScore"),
@@ -309,12 +310,13 @@ export function initScreens(callbacks) {
         onSelect: callbacks.onSelectLevel,
       });
     },
-    updateLevelComplete({ levelId, score, par, stars, birdsRemaining }) {
+    updateLevelComplete({ levelId, score, par, stars, birdsRemaining, hasNextLevel }) {
       refs.completeLevelLabel.textContent = `LEVEL ${String(levelId).padStart(2, "0")}`;
       refs.completeStars.textContent = Array.from({ length: 3 }, (_, index) => (index < stars ? "★" : "☆")).join(" ");
       refs.completeScore.textContent = score.toLocaleString();
       refs.completePar.textContent = par.toLocaleString();
       refs.completeBonus.textContent = `+${birdsRemaining * 400} BRD`;
+      refs.completeNextBtn.textContent = hasNextLevel ? "NEXT SITE →" : "LEVEL SELECT";
     },
     updateLevelFail({ levelId, score, pigsRemaining }) {
       refs.failLevelLabel.textContent = `LEVEL ${String(levelId).padStart(2, "0")}`;

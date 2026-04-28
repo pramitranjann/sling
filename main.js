@@ -5,10 +5,12 @@ import {
   handlePointerEvent,
   stepPhysicsScene,
 } from "./game/physics.js";
+import { getLevelById, getLevelIndex, getNextLevel, loadLevelData } from "./game/levelLoader.js";
 import { getActiveHand, getHandCenter, isInSlingshotZone, updatePinchState } from "./gesture/gestureUtils.js";
 import { HandTracker } from "./gesture/vision.js";
 import { initWebcam } from "./gesture/webcamManager.js";
 import { drawScene, readPalette } from "./render/drawPhysics.js";
+import { CONSTANTS } from "./constants.js";
 import {
   APP_STATES,
   ensureSaveExists,
@@ -20,6 +22,7 @@ import {
   resetCalibrationProgress,
   setAppState,
   state,
+  writeSave,
 } from "./state/state.js";
 import { initScreens } from "./ui/screens.js";
 
@@ -46,12 +49,19 @@ function setTrackerStatus(message) {
   trackerStatus = String(message ?? "OFFLINE").toUpperCase();
 }
 
-function getLevelById(levelId) {
-  return levels.find((level) => level.id === levelId) ?? levels[0] ?? null;
+function countRemainingPigs(sceneRef) {
+  return sceneRef.pigs.filter((pig) => !pig.dead).length;
 }
 
-function getLevelIndex(levelId) {
-  return levels.findIndex((level) => level.id === levelId);
+function countUnusedBirds(sceneRef) {
+  return sceneRef.birdQueue.filter((bird) => bird.status === "unused").length;
+}
+
+function calculateStars(sceneRef) {
+  const birdsRemaining = countUnusedBirds(sceneRef);
+  if (birdsRemaining >= 1) return 3;
+  if (sceneRef.birdQueue.every((bird) => bird.status !== "unused")) return 2;
+  return 1;
 }
 
 function formatLevelNumber(levelId) {
@@ -70,16 +80,6 @@ function makeGestureFrame() {
     pinchState,
     inZone: false,
   };
-}
-
-async function loadLevels() {
-  const response = await fetch(new URL("./data/levels.json", import.meta.url));
-  if (!response.ok) {
-    throw new Error(`Failed to load levels.json (${response.status})`);
-  }
-
-  const payload = await response.json();
-  return payload.levels ?? [];
 }
 
 async function ensureGestureBoot() {
@@ -179,7 +179,7 @@ function destroyScene() {
 }
 
 function mountLevel(levelId) {
-  const level = getLevelById(levelId);
+  const level = getLevelById(levels, levelId) ?? levels[0] ?? null;
   if (!level) return;
 
   destroyScene();
@@ -246,6 +246,33 @@ function transition(nextState, data = {}) {
   }
 }
 
+function finalizeLevelComplete(sceneRef) {
+  const birdsRemaining = countUnusedBirds(sceneRef);
+  const bonus = birdsRemaining * CONSTANTS.BIRDS_REMAINING_BONUS;
+  const finalScore = sceneRef.score + bonus;
+  const stars = calculateStars(sceneRef);
+  const nextLevel = getNextLevel(levels, sceneRef.level.id);
+
+  writeSave(sceneRef.level.id, stars, finalScore);
+
+  transition(APP_STATES.LEVEL_COMPLETE, {
+    levelId: sceneRef.level.id,
+    score: finalScore,
+    par: sceneRef.level.par,
+    stars,
+    birdsRemaining,
+    hasNextLevel: Boolean(nextLevel),
+  });
+}
+
+function finalizeLevelFail(sceneRef) {
+  transition(APP_STATES.LEVEL_FAIL, {
+    levelId: sceneRef.level.id,
+    score: sceneRef.score,
+    pigsRemaining: countRemainingPigs(sceneRef),
+  });
+}
+
 function handleStart() {
   if (hasSavedProgress()) {
     transition(APP_STATES.LEVEL_SELECT);
@@ -272,8 +299,14 @@ function handleRetryCurrent() {
 }
 
 function handleNextLevel() {
-  const nextLevelId = Math.min(state.levelId + 1, levels.length);
-  transition(APP_STATES.GAMEPLAY, { levelId: nextLevelId });
+  const nextLevel = getNextLevel(levels, state.levelId);
+
+  if (!nextLevel) {
+    transition(APP_STATES.LEVEL_SELECT);
+    return;
+  }
+
+  transition(APP_STATES.GAMEPLAY, { levelId: nextLevel.id });
 }
 
 function handleBackHome() {
@@ -349,11 +382,12 @@ function bindKeyboardShortcuts() {
     if (event.key === "3") transition(APP_STATES.LEVEL_SELECT);
     if (event.key === "4") transition(APP_STATES.GAMEPLAY, { levelId: state.levelId || 1 });
     if (event.key === "5") {
-      const level = getLevelById(state.levelId) ?? getLevelById(3);
+      const level = getLevelById(levels, state.levelId) ?? getLevelById(levels, 3);
       transition(APP_STATES.LEVEL_COMPLETE, {
         ...state.preview.complete,
         levelId: level?.id ?? 3,
         par: level?.par ?? state.preview.complete.par,
+        hasNextLevel: Boolean(getNextLevel(levels, level?.id ?? 3)),
       });
     }
     if (event.key === "6") {
@@ -419,6 +453,14 @@ function frame(now) {
     stepPhysicsScene(scene, deltaMs);
     renderGameplay();
     updateGameplayCamera(gestureFrame);
+
+    if (!scene.outcomeHandled && scene.subState === "SITE_CLEAR") {
+      scene.outcomeHandled = true;
+      finalizeLevelComplete(scene);
+    } else if (!scene.outcomeHandled && scene.subState === "OUT_OF_BIRDS") {
+      scene.outcomeHandled = true;
+      finalizeLevelFail(scene);
+    }
   }
 
   animationFrame = requestAnimationFrame(frame);
@@ -429,7 +471,8 @@ async function boot() {
     throw new Error("Matter.js failed to load.");
   }
 
-  levels = await loadLevels();
+  const levelPayload = await loadLevelData(new URL("./data/levels.json", import.meta.url));
+  levels = levelPayload.levels;
   loadSave();
 
   ui = initScreens({
@@ -450,7 +493,10 @@ async function boot() {
   bindPointerInput();
   bindKeyboardShortcuts();
 
-  ui.updateLevelComplete(state.preview.complete);
+  ui.updateLevelComplete({
+    ...state.preview.complete,
+    hasNextLevel: true,
+  });
   ui.updateLevelFail(state.preview.fail);
   transition(APP_STATES.HOME);
 
