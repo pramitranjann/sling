@@ -1,0 +1,413 @@
+/* ============================================================
+   SLING. — Design Tokens
+   Single source of truth. Import this first in every CSS file.
+   Mirror these names exactly in Figma Variables.
+   ============================================================ */
+
+:root {
+
+  /* ----------------------------------------------------------
+     SURFACES
+     ---------------------------------------------------------- */
+  --color-bg:             #EDE8DC;   /* draft paper — the world ground */
+  --color-bg-grid:        #D8D0C0;   /* grid lines drawn over --color-bg */
+  --color-surface-white:  #FFFFFF;   /* card / panel fill */
+  --color-surface-dim:    #C8C0A8;   /* ground plane, inactive fills */
+
+
+  /* ----------------------------------------------------------
+     PRIMARIES
+     Only two. Nothing else goes in the UI.
+     ---------------------------------------------------------- */
+  --color-black:          #111111;
+  --color-yellow:         #FFD100;
+
+
+  /* ----------------------------------------------------------
+     SCENE COLORS (gameplay canvas only — not UI)
+     ---------------------------------------------------------- */
+  --color-concrete:       #9A9488;
+  --color-concrete-dark:  #7A7468;
+  --color-concrete-dust:  #C8C0A8;
+  --color-pig:            #5C8C68;
+  --color-pig-hit:        #4A7455;
+  --color-sky:            #EDE8DC;   /* same as bg — daylight */
+
+
+  /* ----------------------------------------------------------
+     STATE COLORS
+     ---------------------------------------------------------- */
+  --color-fail:           #CC2200;   /* LEVEL FAILED only — nowhere else */
+  --color-star-full:      #FFD100;
+  --color-star-empty:     #CCCCCC;
+
+
+  /* ----------------------------------------------------------
+     TEXT
+     ---------------------------------------------------------- */
+  --color-text-primary:   #111111;
+  --color-text-secondary: #888078;
+  --color-text-dim:       #B0A890;
+  --color-text-on-yellow: #111111;   /* type on --color-yellow surfaces */
+  --color-text-on-black:  #FFD100;   /* primary text on black bars */
+  --color-text-on-black-2:#FFFFFF;   /* secondary text on black bars */
+
+
+  /* ----------------------------------------------------------
+     TYPOGRAPHY
+     ---------------------------------------------------------- */
+  --font-primary: Impact, 'Arial Narrow', Arial, sans-serif;
+
+  --text-xs:      8px;
+  --text-sm:      9px;
+  --text-md:      11px;
+  --text-lg:      14px;
+  --text-xl:      22px;
+  --text-2xl:     48px;
+  --text-3xl:     72px;
+
+  --tracking-loose:   0.20em;   /* --text-xs labels */
+  --tracking-wide:    0.15em;   /* --text-sm labels */
+  --tracking-md:      0.12em;   /* --text-md labels */
+  --tracking-normal:  0.08em;   /* --text-lg buttons, nav */
+  --tracking-tight:   0.04em;   /* --text-xl and above */
+
+
+  /* ----------------------------------------------------------
+     SPACING (8pt base)
+     ---------------------------------------------------------- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  24px;
+  --space-6:  32px;
+  --space-7:  48px;
+  --space-8:  64px;
+
+
+  /* ----------------------------------------------------------
+     BORDERS
+     All borders in SLING. use one of these. No others.
+     ---------------------------------------------------------- */
+  --border-primary:   2.5px solid #111111;   /* hero containers, active cards */
+  --border-standard:  2px solid #111111;     /* most components */
+  --border-dashed:    2px dashed #111111;    /* unplayed/inactive states */
+  --border-dim:       2px dashed #C8C0A8;    /* locked states */
+
+  /* ZERO border-radius anywhere. This variable exists as a reminder. */
+  --border-radius: 0px;
+
+
+  /* ----------------------------------------------------------
+     HAZARD STRIPE
+     Use as background-image on a div with height: 10px.
+     Also used as tension bar fill pattern.
+     ---------------------------------------------------------- */
+  --hazard-stripe: repeating-linear-gradient(
+    -45deg,
+    #FFD100,
+    #FFD100 10px,
+    #111111 10px,
+    #111111 20px
+  );
+
+
+  /* ----------------------------------------------------------
+     GRID PAPER
+     Apply to any scene or screen background.
+     Use as background shorthand on the element.
+     ---------------------------------------------------------- */
+  --grid-paper-bg:    #EDE8DC;
+  --grid-paper-size:  40px;
+  /* Implementation:
+     background-color: var(--grid-paper-bg);
+     background-image: linear-gradient(var(--color-bg-grid) 1px, transparent 1px),
+                       linear-gradient(90deg, var(--color-bg-grid) 1px, transparent 1px);
+     background-size: var(--grid-paper-size) var(--grid-paper-size);
+  */
+
+
+  /* ----------------------------------------------------------
+     COMPONENT DIMENSIONS
+     ---------------------------------------------------------- */
+  --hud-height-top:       44px;
+  --hud-height-bottom:    44px;
+  --hazard-stripe-height: 10px;
+  --button-height:        48px;
+  --level-card-width:     112px;
+  --level-card-height:    170px;
+  --level-card-header:    40px;
+  --tension-rail-width:   130px;
+  --tension-rail-height:  10px;
+  --bird-dot-active:      18px;
+  --bird-dot-remaining:   16px;
+  --pinch-zone-radius:    60px;   /* canvas, pulse animation */
+  --ball-diameter:        28px;
+  --ball-diameter-heavy:  36px;
+
+
+  /* ----------------------------------------------------------
+     ANIMATION
+     ---------------------------------------------------------- */
+  --duration-instant:   0.08s;
+  --duration-fast:      0.15s;
+  --duration-normal:    0.3s;
+  --duration-slow:      0.4s;   /* star reveal spacing */
+  --duration-score:     1.2s;   /* score count-up */
+  --duration-rumble:    3.0s;   /* collapse sound fade */
+  --easing-out:         cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-in-out:      cubic-bezier(0.65, 0, 0.35, 1);
+
+}
+
+
+/* ============================================================
+   UTILITY CLASSES
+   Use these in HTML. Do not write one-off inline styles for
+   anything covered here.
+   ============================================================ */
+
+/* Hazard stripe divider */
+.stripe {
+  height: var(--hazard-stripe-height);
+  background: var(--hazard-stripe);
+  width: 100%;
+  flex-shrink: 0;
+}
+
+/* Grid paper background */
+.grid-bg {
+  background-color: var(--grid-paper-bg);
+  background-image:
+    linear-gradient(var(--color-bg-grid) 0.5px, transparent 0.5px),
+    linear-gradient(90deg, var(--color-bg-grid) 0.5px, transparent 0.5px);
+  background-size: var(--grid-paper-size) var(--grid-paper-size);
+}
+
+/* HUD bars */
+.hud-top {
+  background: var(--color-black);
+  height: var(--hud-height-top);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  border-bottom: var(--border-standard);
+  flex-shrink: 0;
+}
+
+.hud-bottom {
+  background: var(--color-yellow);
+  height: var(--hud-height-bottom);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  border-top: var(--border-standard);
+  flex-shrink: 0;
+}
+
+/* Buttons */
+.btn-primary {
+  background: var(--color-black);
+  color: var(--color-text-on-black);
+  border: var(--border-standard);
+  height: var(--button-height);
+  font-family: var(--font-primary);
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-normal);
+  text-transform: uppercase;
+  cursor: pointer;
+  width: 100%;
+  border-radius: var(--border-radius);
+}
+
+.btn-primary:hover {
+  background: var(--color-yellow);
+  color: var(--color-text-on-yellow);
+}
+
+.btn-secondary {
+  background: var(--color-surface-white);
+  color: var(--color-text-primary);
+  border: var(--border-standard);
+  height: var(--button-height);
+  font-family: var(--font-primary);
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-normal);
+  text-transform: uppercase;
+  cursor: pointer;
+  width: 100%;
+  border-radius: var(--border-radius);
+}
+
+.btn-secondary:hover {
+  background: var(--color-bg);
+}
+
+.btn-secondary:disabled,
+.btn-secondary[aria-disabled="true"] {
+  color: var(--color-text-dim);
+  border-color: var(--color-surface-dim);
+  cursor: not-allowed;
+}
+
+/* Level badge (inside hud-top) */
+.level-badge {
+  background: var(--color-yellow);
+  padding: var(--space-1) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  border-radius: var(--border-radius);
+}
+
+.level-badge__label {
+  font-family: var(--font-primary);
+  font-size: var(--text-xs);
+  color: var(--color-text-on-yellow);
+  letter-spacing: var(--tracking-loose);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.level-badge__number {
+  font-family: var(--font-primary);
+  font-size: var(--text-xl);
+  color: var(--color-text-on-yellow);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+}
+
+/* Tension rail */
+.tension-rail {
+  width: var(--tension-rail-width);
+  height: var(--tension-rail-height);
+  background: var(--color-black);
+  border: var(--border-standard);
+  overflow: hidden;
+  position: relative;
+  border-radius: var(--border-radius);
+}
+
+.tension-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--hazard-stripe);
+  background-size: 20px 20px;
+  transition: width var(--duration-instant) linear;
+}
+
+/* Level card */
+.level-card {
+  width: var(--level-card-width);
+  height: var(--level-card-height);
+  background: var(--color-surface-white);
+  border: var(--border-standard);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.level-card--active {
+  background: var(--color-yellow);
+  border: var(--border-primary);
+}
+
+.level-card--unplayed {
+  border: var(--border-dashed);
+}
+
+.level-card--locked {
+  background: var(--color-bg);
+  border: var(--border-dim);
+  cursor: default;
+  pointer-events: none;
+}
+
+.level-card__header {
+  height: var(--level-card-header);
+  background: var(--color-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.level-card--locked .level-card__header {
+  background: var(--color-surface-dim);
+}
+
+.level-card__number {
+  font-family: var(--font-primary);
+  font-size: var(--text-xl);
+  color: var(--color-text-on-black);
+  letter-spacing: var(--tracking-tight);
+}
+
+.level-card--locked .level-card__number {
+  color: var(--color-text-dim);
+}
+
+/* HUD label/value pair */
+.hud-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.hud-stat__label {
+  font-family: var(--font-primary);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  letter-spacing: var(--tracking-loose);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.hud-stat__value {
+  font-family: var(--font-primary);
+  font-size: var(--text-xl);
+  color: var(--color-text-on-black-2);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+}
+
+/* Score popup (canvas overlay or DOM) */
+.score-popup {
+  font-family: var(--font-primary);
+  font-size: var(--text-lg);
+  color: var(--color-black);
+  letter-spacing: var(--tracking-normal);
+  animation: floatUp 0.8s var(--easing-out) forwards;
+  pointer-events: none;
+  position: absolute;
+}
+
+@keyframes floatUp {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-40px); }
+}
+
+/* Star reveal */
+.star-item {
+  opacity: 0;
+  font-size: 28px;
+}
+
+.star-item--revealed {
+  animation: starReveal var(--duration-slow) var(--easing-out) forwards;
+}
+
+@keyframes starReveal {
+  0%   { opacity: 0; transform: scale(0.6); }
+  60%  { transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}

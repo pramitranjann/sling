@@ -1,0 +1,164 @@
+{
+  "meta": {
+    "worldWidth": 1280,
+    "worldHeight": 720,
+    "groundY": 740,
+    "slingshotOrigin": { "x": 160, "y": 580 }
+  },
+  "levels": [
+
+    {
+      "id": 1,
+      "name": "SITE A",
+      "par": 2400,
+      "birds": ["standard", "standard", "standard"],
+      "structures": [
+        {
+          "comment": "Simple tower — two columns, pig on top. Teaching level.",
+          "blocks": [
+            { "type": "1x1", "x": 700, "y": 700 },
+            { "type": "1x1", "x": 700, "y": 660 },
+            { "type": "1x1", "x": 740, "y": 700 },
+            { "type": "1x1", "x": 740, "y": 660 },
+            { "type": "1x2", "x": 720, "y": 628 }
+          ],
+          "pigs": [
+            { "variant": "standard", "x": 720, "y": 596 }
+          ]
+        }
+      ],
+      "hints": {
+        "3star": "One direct hit on the bridge block collapses both columns onto the pig.",
+        "failAvoid": "Don't aim too high — the pig is low, bridge block is the target."
+      }
+    },
+
+    {
+      "id": 2,
+      "name": "SITE B",
+      "par": 3200,
+      "birds": ["standard", "standard", "heavy"],
+      "structures": [
+        {
+          "comment": "L-shaped structure. Pig is sheltered behind a wall. Requires indirect hit or heavy ball to pierce.",
+          "blocks": [
+            { "type": "2x1", "x": 680, "y": 700 },
+            { "type": "2x1", "x": 680, "y": 620 },
+            { "type": "2x1", "x": 680, "y": 540 },
+            { "type": "3x1", "x": 760, "y": 700 },
+            { "type": "1x1", "x": 760, "y": 660 },
+            { "type": "1x1", "x": 800, "y": 660 }
+          ],
+          "pigs": [
+            { "variant": "standard", "x": 790, "y": 628 }
+          ]
+        }
+      ],
+      "hints": {
+        "3star": "Use the heavy ball to pierce straight through the wall. Standard balls can clear the top and drop down.",
+        "failAvoid": "Don't waste the heavy ball on the outer blocks — it's for piercing the wall directly."
+      }
+    },
+
+    {
+      "id": 3,
+      "name": "SITE C",
+      "par": 4200,
+      "birds": ["standard", "heavy", "charge"],
+      "structures": [
+        {
+          "comment": "Two separate structures with pigs. First pig is exposed, second is behind a reinforced 2x2 wall.",
+          "blocks": [
+            { "type": "1x2", "x": 620, "y": 700 },
+            { "type": "1x1", "x": 620, "y": 660 },
+            { "type": "1x2", "x": 660, "y": 700 },
+            { "type": "1x1", "x": 660, "y": 660 }
+          ],
+          "pigs": [
+            { "variant": "standard", "x": 640, "y": 628 }
+          ]
+        },
+        {
+          "comment": "Second structure — fortified pig behind 2x2 blocks",
+          "blocks": [
+            { "type": "2x2", "x": 820, "y": 700 },
+            { "type": "2x2", "x": 860, "y": 700 },
+            { "type": "2x2", "x": 840, "y": 620 },
+            { "type": "1x2", "x": 840, "y": 548 }
+          ],
+          "pigs": [
+            { "variant": "fortified", "x": 840, "y": 516 }
+          ]
+        }
+      ],
+      "hints": {
+        "3star": "Standard on first pig, heavy to crack the 2x2 wall, charge ball for the fortified pig.",
+        "failAvoid": "Don't use the charge ball on the first structure — you'll need it for the fortified pig."
+      }
+    },
+
+    {
+      "id": 4,
+      "name": "SITE D",
+      "par": 5200,
+      "birds": ["heavy", "charge", "standard"],
+      "structures": [
+        {
+          "comment": "Wide spread — three pigs across a long low structure. Requires trajectory thinking.",
+          "blocks": [
+            { "type": "3x1", "x": 580, "y": 700 },
+            { "type": "3x1", "x": 700, "y": 700 },
+            { "type": "3x1", "x": 820, "y": 700 },
+            { "type": "1x1", "x": 580, "y": 660 },
+            { "type": "1x1", "x": 700, "y": 660 },
+            { "type": "1x1", "x": 820, "y": 660 },
+            { "type": "3x1", "x": 700, "y": 628 }
+          ],
+          "pigs": [
+            { "variant": "standard",  "x": 580, "y": 628 },
+            { "variant": "fortified", "x": 700, "y": 596 },
+            { "variant": "standard",  "x": 820, "y": 628 }
+          ]
+        }
+      ],
+      "hints": {
+        "3star": "Heavy ball through the center bridge hits the fortified pig and can cascade to side pigs. Charge on the right cluster.",
+        "failAvoid": "The left pig can be left for last — the central structure collapse usually takes it out."
+      }
+    },
+
+    {
+      "id": 5,
+      "name": "SITE E",
+      "par": 6800,
+      "birds": ["charge", "heavy", "standard"],
+      "structures": [
+        {
+          "comment": "Tall tower — four pigs at different heights inside a reinforced structure. Hardest level.",
+          "blocks": [
+            { "type": "2x1", "x": 700, "y": 700 },
+            { "type": "2x1", "x": 740, "y": 700 },
+            { "type": "2x2", "x": 720, "y": 620 },
+            { "type": "2x1", "x": 700, "y": 540 },
+            { "type": "2x1", "x": 740, "y": 540 },
+            { "type": "2x2", "x": 720, "y": 460 },
+            { "type": "3x1", "x": 720, "y": 388 },
+            { "type": "1x1", "x": 700, "y": 356 },
+            { "type": "1x1", "x": 740, "y": 356 }
+          ],
+          "pigs": [
+            { "variant": "standard",  "x": 720, "y": 668 },
+            { "variant": "fortified", "x": 720, "y": 588 },
+            { "variant": "standard",  "x": 720, "y": 508 },
+            { "variant": "fortified", "x": 720, "y": 324 }
+          ]
+        }
+      ],
+      "hints": {
+        "3star": "Charge at the base 2x2 — the blast radius can hit both the bottom pig and crack the fortified one above. Heavy for the mid section. Standard for cleanup.",
+        "failAvoid": "Don't aim at the top — the tower will fall on its own if the base is destroyed."
+      }
+    }
+
+  ]
+}

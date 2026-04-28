@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SLING. — Step 3 Gesture Physics</title>
+    <link rel="stylesheet" href="./styles/main.css" />
+    <script
+      defer
+      src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"
+    ></script>
+  </head>
+  <body class="grid-bg">
+    <div class="app-shell">
+      <div class="stripe"></div>
+      <header class="session-bar">
+        <div class="session-bar__copy">
+          <span class="session-bar__title">SLING.</span>
+          <span class="session-bar__meta">CURRENT STEP: GESTURE TO PHYSICS</span>
+        </div>
+        <div class="session-bar__step">STEP 3 — PINCH LOCK + RELEASE LAUNCH</div>
+      </header>
+
+      <main class="workspace">
+        <section class="viewport-shell">
+          <div id="game-root" class="game-root">
+            <div class="game-root__bg grid-bg"></div>
+            <canvas id="canvas-physics" width="1280" height="720"></canvas>
+            <canvas id="canvas-vfx" width="1280" height="720"></canvas>
+
+            <div class="hud-top">
+              <div class="hud-group">
+                <div class="level-badge">
+                  <span class="level-badge__label">LEVEL</span>
+                  <span class="level-badge__value" id="levelNumber">01</span>
+                </div>
+                <div class="hud-meta">
+                  <span class="hud-meta__label">SITE</span>
+                  <span class="hud-meta__value" id="levelName">SITE A</span>
+                </div>
+              </div>
+
+              <div class="hud-group hud-group--center">
+                <div class="hud-meta">
+                  <span class="hud-meta__label">PAR</span>
+                  <span class="hud-meta__value" id="parScore">0</span>
+                </div>
+                <div class="hud-meta">
+                  <span class="hud-meta__label">STATE</span>
+                  <span class="hud-meta__value" id="shotState">READY</span>
+                </div>
+              </div>
+
+              <div class="hud-score">
+                <span class="hud-score__label">SCORE</span>
+                <span class="hud-score__value" id="hudScore">0</span>
+              </div>
+            </div>
+
+            <div class="hud-bottom">
+              <div class="hud-bottom__group">
+                <div class="hud-meta hud-meta--dark">
+                  <span class="hud-meta__label">BIRDS</span>
+                </div>
+                <div class="bird-queue" id="birdQueue"></div>
+              </div>
+
+              <div class="hud-bottom__group hud-bottom__group--right">
+                <div class="hud-meta hud-meta--dark">
+                  <span class="hud-meta__label">TENSION</span>
+                  <span class="hud-meta__value" id="tensionPct">0%</span>
+                </div>
+                <div class="tension-rail">
+                  <div class="tension-fill" id="tensionFill"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="control-panel">
+          <section class="control-card">
+            <div class="control-card__label">TEST STATUS</div>
+            <div class="control-card__value" id="statusText">
+              INITIALIZING GESTURE TRACKER
+            </div>
+            <p class="control-card__body">
+              Gesture input is now the primary launch path. Grant camera access, move a hand into
+              the slingshot zone, pinch to lock, pull back, and release to fire. Mouse drag remains
+              available as a debug fallback if camera access is blocked.
+            </p>
+          </section>
+
+          <section class="control-card">
+            <div class="control-card__label">GESTURE TELEMETRY</div>
+            <div class="key-grid">
+              <div class="key-row"><span>TRACKER</span><span id="trackerState">BOOTING</span></div>
+              <div class="key-row"><span>ACTIVE HAND</span><span id="activeHandMetric">NONE</span></div>
+              <div class="key-row"><span>PINCH EVENT</span><span id="pinchMetric">IDLE</span></div>
+              <div class="key-row"><span>INPUT MODE</span><span id="inputModeMetric">GESTURE</span></div>
+            </div>
+          </section>
+
+          <section class="control-card">
+            <div class="control-card__label">CONTROLS</div>
+            <div class="key-grid">
+              <div class="key-row"><span>PINCH</span><span>Lock the active ball in-zone</span></div>
+              <div class="key-row"><span>RELEASE</span><span>Open pinch to launch</span></div>
+              <div class="key-row"><span>MOUSE</span><span>Debug fallback drag launch</span></div>
+              <div class="key-row"><span>RESET</span><span>Restart the current level</span></div>
+              <div class="key-row"><span>LEVEL</span><span>Move between authored sites</span></div>
+            </div>
+          </section>
+
+          <section class="control-card">
+            <div class="control-card__label">SITE CONTROLS</div>
+            <div class="button-stack">
+              <button id="prevLevelBtn" class="btn-secondary" type="button">PREV SITE</button>
+              <button id="resetLevelBtn" class="btn-primary" type="button">RESET SITE</button>
+              <button id="nextLevelBtn" class="btn-secondary" type="button">NEXT SITE</button>
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <div class="sensor-rig" aria-hidden="true">
+        <video id="webcamVideo" autoplay playsinline muted></video>
+      </div>
+
+      <div class="stripe"></div>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
