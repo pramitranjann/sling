@@ -38,6 +38,13 @@ export class HandTracker {
     this.lastVideoTime = -1;
   }
 
+  setVideoSource(videoEl) {
+    if (!videoEl || this.videoEl === videoEl) return;
+    this.videoEl = videoEl;
+    this.lastVideoTime = -1;
+    this.previousHands = [];
+  }
+
   async start(statusCallback = () => {}) {
     if (this.handLandmarker) return;
 

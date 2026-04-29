@@ -95,8 +95,8 @@ export const CONSTANTS = {
   PINCH_THRESHOLD_RATIO:      0.34,
   PINCH_RATIO_HYSTERESIS:     0.08,
   MEDIAPIPE_MAX_HANDS:        2,
-  MEDIAPIPE_DETECTION_CONF:   0.75,
-  MEDIAPIPE_TRACKING_CONF:    0.70,
+  MEDIAPIPE_DETECTION_CONF:   0.55,
+  MEDIAPIPE_TRACKING_CONF:    0.50,
 
   // ── VFX ──────────────────────────────────────────────────
   SHOCKWAVE_DURATION_MS:      400,

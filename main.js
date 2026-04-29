@@ -87,6 +87,18 @@ function makeGestureFrame() {
   };
 }
 
+function getTrackerVideoSource() {
+  if (state.current === APP_STATES.GAMEPLAY && ui?.refs?.gameplayVideo) {
+    return ui.refs.gameplayVideo;
+  }
+
+  if (state.current === APP_STATES.CALIBRATION && ui?.refs?.calibrationVideo) {
+    return ui.refs.calibrationVideo;
+  }
+
+  return sensorVideo;
+}
+
 async function ensureGestureBoot() {
   if (gestureReady) return true;
   if (gestureBootPromise) return gestureBootPromise;
@@ -97,7 +109,7 @@ async function ensureGestureBoot() {
       const stream = await initWebcam(sensorVideo);
       ui.attachSharedStream(stream);
 
-      tracker = new HandTracker(sensorVideo);
+      tracker = new HandTracker(getTrackerVideoSource());
       await tracker.start(setTrackerStatus);
       gestureReady = true;
       setTrackerStatus("TRACKER LIVE");
@@ -502,6 +514,8 @@ function buildGestureFrame(now) {
   ) {
     return gestureFrame;
   }
+
+  tracker.setVideoSource(getTrackerVideoSource());
 
   const hands = tracker.detect(now, {
     x: 0,
