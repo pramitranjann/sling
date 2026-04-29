@@ -191,7 +191,6 @@ select {
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  filter: grayscale(1) contrast(1.05);
 }
 
 .calibration-feed__status {
@@ -392,7 +391,6 @@ select {
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  filter: grayscale(1) contrast(1.05);
 }
 
 .webcam-window__label {

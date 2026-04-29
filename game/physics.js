@@ -23,7 +23,7 @@ function createBounds(Matter) {
   return [
     Matter.Bodies.rectangle(
       CONSTANTS.CANVAS_W / 2,
-      CONSTANTS.GROUND_Y + 20,
+      CONSTANTS.GROUND_VISIBLE_Y + 20,
       CONSTANTS.CANVAS_W,
       40,
       { isStatic: true, label: "ground" },
@@ -288,7 +288,7 @@ function completeShot(scene, message) {
 
   resetPull(scene);
 
-  if (scene.pigs.length === 0) {
+  if (scene.pigs.every((pig) => pig.dead)) {
     scene.subState = "SITE_CLEAR";
     scene.statusText = "SITE CLEARED. MOVE TO THE NEXT TEST SITE.";
     return;
@@ -352,13 +352,12 @@ function damagePig(scene, pig, amount) {
       variant: pig.pigVariant,
       score: scene.score,
     });
+    if (scene.pigs.every((candidate) => candidate.dead)) {
+      scene.levelClearAt = performance.now() + CONSTANTS.LEVEL_COMPLETE_DELAY_MS;
+    }
 
     const timer = window.setTimeout(() => {
       removeBody(scene, pig);
-      if (scene.pigs.length === 0 && !scene.currentBall) {
-        scene.subState = "SITE_CLEAR";
-        scene.statusText = "SITE CLEARED. MOVE TO THE NEXT TEST SITE.";
-      }
     }, CONSTANTS.PIG_DEATH_REMOVE_MS);
     scene.activeTimers.add(timer);
   }
@@ -537,6 +536,32 @@ function cleanupOffscreenBodies(scene) {
   }
 }
 
+function resolveSceneOutcome(scene) {
+  const livingPigs = scene.pigs.filter((pig) => !pig.dead).length;
+  const shotsRemaining = scene.birdQueue.some(
+    (bird) => bird.status === "active" || bird.status === "unused",
+  );
+
+  if (livingPigs === 0) {
+    if (!scene.levelClearAt) {
+      scene.levelClearAt = performance.now() + CONSTANTS.LEVEL_COMPLETE_DELAY_MS;
+    }
+
+    if (performance.now() >= scene.levelClearAt) {
+      scene.subState = "SITE_CLEAR";
+      scene.statusText = "SITE CLEARED. MOVE TO THE NEXT TEST SITE.";
+    }
+    return;
+  }
+
+  scene.levelClearAt = 0;
+
+  if (!scene.currentBall && !scene.dragging && !shotsRemaining) {
+    scene.subState = "OUT_OF_BIRDS";
+    scene.statusText = "NO CHARGES LEFT. RESET OR MOVE TO ANOTHER SITE.";
+  }
+}
+
 export function createPhysicsScene(level, hooks = {}) {
   const Matter = getMatter();
   const engine = Matter.Engine.create({
@@ -571,6 +596,7 @@ export function createPhysicsScene(level, hooks = {}) {
     statusText: "WAITING FOR PINCH INPUT. MOUSE DRAG IS STILL AVAILABLE.",
     inputMode: "GESTURE",
     outcomeHandled: false,
+    levelClearAt: 0,
     settleFrames: 0,
     launchStartedAt: 0,
     activeTimers: new Set(),
@@ -680,6 +706,7 @@ export function stepPhysicsScene(scene, deltaMs) {
   scene.Matter.Engine.update(scene.engine, deltaMs);
   cleanupOffscreenBodies(scene);
   updateLaunchedBall(scene);
+  resolveSceneOutcome(scene);
   scene.shockwaves = scene.shockwaves.filter(
     (wave) => performance.now() - wave.startedAt < CONSTANTS.SHOCKWAVE_DURATION_MS,
   );

@@ -35,6 +35,7 @@ export class HandTracker {
     this.handLandmarker = null;
     this.previousHands = [];
     this.nextHandId = 1;
+    this.lastVideoTime = -1;
   }
 
   async start(statusCallback = () => {}) {
@@ -65,7 +66,12 @@ export class HandTracker {
       return [];
     }
 
-    const results = this.handLandmarker.detectForVideo(this.videoEl, nowMs);
+    if (this.videoEl.currentTime === this.lastVideoTime) {
+      return this.previousHands;
+    }
+
+    const results = this.handLandmarker.detectForVideo(this.videoEl);
+    this.lastVideoTime = this.videoEl.currentTime;
     const landmarks = results.landmarks ?? [];
     const handednesses = results.handednesses ?? [];
 
