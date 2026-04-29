@@ -35,13 +35,11 @@ export class HandTracker {
     this.handLandmarker = null;
     this.previousHands = [];
     this.nextHandId = 1;
-    this.lastVideoTime = -1;
   }
 
   setVideoSource(videoEl) {
     if (!videoEl || this.videoEl === videoEl) return;
     this.videoEl = videoEl;
-    this.lastVideoTime = -1;
     this.previousHands = [];
   }
 
@@ -73,12 +71,7 @@ export class HandTracker {
       return [];
     }
 
-    if (this.videoEl.currentTime === this.lastVideoTime) {
-      return this.previousHands;
-    }
-
-    const results = this.handLandmarker.detectForVideo(this.videoEl);
-    this.lastVideoTime = this.videoEl.currentTime;
+    const results = this.handLandmarker.detectForVideo(this.videoEl, nowMs);
     const landmarks = results.landmarks ?? [];
     const handednesses = results.handednesses ?? [];
 

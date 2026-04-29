@@ -2,9 +2,9 @@ import { CONSTANTS } from "./constants.js";
 
 export const CONFIG = {
   mediaPipeVisionUrl:
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs",
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js",
   mediaPipeWasmRoot:
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm",
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm",
   mediaPipeHandModel:
     "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
   webcamConstraints: {
