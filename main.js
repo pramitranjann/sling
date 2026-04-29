@@ -147,11 +147,8 @@ function buildCalibrationTutorial(gestureFrame) {
     state.calibration.handPassed = true;
   }
 
-  if (gestureFrame.inZone) {
+  if (gestureFrame.pinchState.active) {
     state.calibration.zonePassed = true;
-  }
-
-  if (gestureFrame.pinchState.active && gestureFrame.inZone) {
     state.calibration.pinchPassed = true;
   }
 
@@ -185,7 +182,7 @@ function buildCalibrationTutorial(gestureFrame) {
     activeStep === 1
       ? "HOLD ONE HAND CLEARLY IN FRAME UNTIL TRACKING STABILISES."
       : activeStep === 2
-        ? "MOVE YOUR PINCHED FINGERS INTO THE YELLOW SLING ZONE TO LOCK THE SHOT."
+        ? "PINCH ANYWHERE TO LOCK THE SHOT TO THE SLING."
         : activeStep === 3
           ? "KEEP THE PINCH CLOSED, THEN PULL BACK FROM ANY POSITION TO LOAD THE SHOT."
           : state.calibration.releasePassed
@@ -194,13 +191,11 @@ function buildCalibrationTutorial(gestureFrame) {
 
   const caption = !handDetected
     ? "WAITING FOR HAND INPUT."
-    : !gestureFrame.inZone
-      ? "MOVE INTO THE LOCK ZONE."
-      : !gestureFrame.pinchState.active
-        ? "PINCH TO LOCK THE SHOT."
-        : pullDistance < 42
-          ? "PULL FARTHER BACK WHILE HOLDING THE PINCH."
-          : "OPEN YOUR FINGERS ANYWHERE TO RELEASE.";
+    : !gestureFrame.pinchState.active
+      ? "PINCH ANYWHERE TO LOCK THE SHOT."
+      : pullDistance < 42
+        ? "PULL FARTHER BACK WHILE HOLDING THE PINCH."
+        : "OPEN YOUR FINGERS ANYWHERE TO RELEASE.";
 
   return {
     handDone: state.calibration.handPassed,

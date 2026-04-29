@@ -277,9 +277,10 @@ function drawTrajectoryArc(ctx, scene, palette) {
   if (!points || points.length < 2) return;
 
   ctx.save();
-  ctx.setLineDash([6, 4]);
   ctx.strokeStyle = palette.black;
   ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.setLineDash([2, 10]);
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
 
@@ -288,39 +289,6 @@ function drawTrajectoryArc(ctx, scene, palette) {
   }
 
   ctx.stroke();
-  ctx.restore();
-}
-
-function drawLaunchArrow(ctx, scene, palette) {
-  if (!scene.dragging || scene.pull.distance <= 6) return;
-
-  const start = {
-    x: scene.pull.position.x + scene.pull.vector.x * 18,
-    y: scene.pull.position.y + scene.pull.vector.y * 18,
-  };
-  const end = {
-    x: start.x + scene.pull.vector.x * 72,
-    y: start.y + scene.pull.vector.y * 72,
-  };
-  const angle = Math.atan2(scene.pull.vector.y, scene.pull.vector.x);
-  const wing = 14;
-
-  ctx.save();
-  ctx.strokeStyle = palette.yellow;
-  ctx.fillStyle = palette.yellow;
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(start.x, start.y);
-  ctx.lineTo(end.x, end.y);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(end.x, end.y);
-  ctx.lineTo(end.x - wing * Math.cos(angle - 0.55), end.y - wing * Math.sin(angle - 0.55));
-  ctx.lineTo(end.x - wing * Math.cos(angle + 0.55), end.y - wing * Math.sin(angle + 0.55));
-  ctx.closePath();
-  ctx.fill();
   ctx.restore();
 }
 
@@ -415,7 +383,6 @@ export function drawScene({ scene, physicsCtx, vfxCtx, palette }) {
   drawCurrentBall(physicsCtx, scene, palette);
 
   drawTrajectoryArc(vfxCtx, scene, palette);
-  drawLaunchArrow(vfxCtx, scene, palette);
   drawPinchZoneRing(vfxCtx, scene, palette);
   drawHandCursor(vfxCtx, scene, palette);
   drawShockwaves(vfxCtx, scene, palette);

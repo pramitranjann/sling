@@ -74,7 +74,7 @@ function applyTutorialStep(stepNode, statusNode, isDone, isActive) {
   if (!stepNode || !statusNode) return;
   stepNode.classList.toggle("tutorial-step--done", isDone);
   stepNode.classList.toggle("tutorial-step--active", !isDone && isActive);
-  statusNode.textContent = isDone ? "DONE" : isActive ? "LIVE" : "WAIT";
+  statusNode.textContent = isDone ? "READY" : isActive ? "NOW" : "UP NEXT";
 }
 
 function markup() {
@@ -159,11 +159,43 @@ function markup() {
               </div>
 
               <div class="calibration-demo__guide guide-card">
-                <span class="guide-card__eyebrow">TRAINING WALKTHROUGH</span>
-                <h2 class="guide-card__title">LEARN THE SHOT BEFORE YOU ENTER THE SITE.</h2>
+                <span class="guide-card__eyebrow">LIVE TRAINING</span>
+                <h2 class="guide-card__title calibration-demo__guide-title">FOLLOW THE NEXT CUE.</h2>
                 <p class="guide-card__copy" id="calibrationGuideCopy">
                   SHOW ONE HAND TO THE CAMERA TO BEGIN THE LIVE DEMO.
                 </p>
+                <div class="tutorial-steps tutorial-steps--compact">
+                  <div class="tutorial-step tutorial-step--compact" id="calibrationStepHand">
+                    <div class="tutorial-step__body">
+                      <span class="tutorial-step__label">Show Your Hand</span>
+                    </div>
+                    <span class="tutorial-step__state" id="calibrationStepHandState">WAIT</span>
+                  </div>
+                  <div class="tutorial-step tutorial-step--compact" id="calibrationStepZone">
+                    <div class="tutorial-step__body">
+                      <span class="tutorial-step__label">Pinch To Lock</span>
+                    </div>
+                    <span class="tutorial-step__state" id="calibrationStepZoneState">WAIT</span>
+                  </div>
+                  <div class="tutorial-step tutorial-step--compact" id="calibrationStepPull">
+                    <div class="tutorial-step__body">
+                      <span class="tutorial-step__label">Pull Back</span>
+                    </div>
+                    <span class="tutorial-step__state" id="calibrationStepPullState">WAIT</span>
+                  </div>
+                  <div class="tutorial-step tutorial-step--compact" id="calibrationStepRelease">
+                    <div class="tutorial-step__body">
+                      <span class="tutorial-step__label">Open To Fire</span>
+                    </div>
+                    <span class="tutorial-step__state" id="calibrationStepReleaseState">WAIT</span>
+                  </div>
+                </div>
+                <div class="tracker-copy calibration-demo__guide-hint">
+                  PINCH ANYWHERE TO SNAP THE SHOT TO THE SLING.
+                </div>
+                <button id="enterSiteBtn" class="btn-primary calibration-demo__enter" type="button" disabled>
+                  ENTER SITE
+                </button>
               </div>
 
               <div class="hud-bottom calibration-demo__footer">
@@ -181,45 +213,6 @@ function markup() {
                     <div id="calibrationRailFill" class="rail-block__fill"></div>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div class="calibration-stack">
-              <div class="tutorial-steps">
-                <div class="tutorial-step" id="calibrationStepHand">
-                  <div>
-                    <span class="tutorial-step__index">01</span>
-                    <span class="tutorial-step__label">SHOW YOUR HAND</span>
-                  </div>
-                  <span class="tutorial-step__state" id="calibrationStepHandState">WAIT</span>
-                </div>
-                <div class="tutorial-step" id="calibrationStepZone">
-                  <div>
-                    <span class="tutorial-step__index">02</span>
-                    <span class="tutorial-step__label">MOVE INTO THE SLING ZONE</span>
-                  </div>
-                  <span class="tutorial-step__state" id="calibrationStepZoneState">WAIT</span>
-                </div>
-                <div class="tutorial-step" id="calibrationStepPull">
-                  <div>
-                    <span class="tutorial-step__index">03</span>
-                    <span class="tutorial-step__label">PINCH AND PULL BACK</span>
-                  </div>
-                  <span class="tutorial-step__state" id="calibrationStepPullState">WAIT</span>
-                </div>
-                <div class="tutorial-step" id="calibrationStepRelease">
-                  <div>
-                    <span class="tutorial-step__index">04</span>
-                    <span class="tutorial-step__label">OPEN TO RELEASE</span>
-                  </div>
-                  <span class="tutorial-step__state" id="calibrationStepReleaseState">WAIT</span>
-                </div>
-              </div>
-              <div class="calibration-actions">
-                <div class="tracker-copy calibration-actions__copy">
-                  LOCK THE PINCH IN THE YELLOW ZONE, THEN PULL AND RELEASE FROM ANYWHERE.
-                </div>
-                <button id="enterSiteBtn" class="btn-primary" type="button" disabled>ENTER SITE</button>
               </div>
             </div>
           </div>

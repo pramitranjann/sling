@@ -178,7 +178,7 @@ function setNextActiveBird(scene) {
   if (nextBird) {
     nextBird.status = "active";
     scene.subState = "READY";
-    scene.statusText = "PINCH IN-ZONE TO ARM THE NEXT SHOT.";
+    scene.statusText = "PINCH ANYWHERE TO ARM THE NEXT SHOT.";
     return true;
   }
 
@@ -201,34 +201,48 @@ function getLaunchVelocity(pullVector, pullDistance) {
 
 function getTrajectoryPoints(scene, pullVector, pullDistance, steps = 40, stepTime = 3) {
   const points = [];
+  const Matter = scene.Matter;
   const activeBird = getActiveBird(scene);
   const ballDef = CONSTANTS.BALL[activeBird?.variant] ?? CONSTANTS.BALL.standard;
   const velocity = getLaunchVelocity(pullVector, pullDistance);
-  const gravityPerFrame =
-    scene.engine.gravity.y *
-    scene.engine.gravity.scale *
-    (1000 / 60) *
-    (1000 / 60);
-  const airFactor = Math.max(0, 1 - ballDef.frictionAir);
+  const simEngine = Matter.Engine.create({
+    gravity: {
+      x: scene.engine.gravity.x,
+      y: scene.engine.gravity.y,
+      scale: scene.engine.gravity.scale,
+    },
+  });
+  const simBall = Matter.Bodies.circle(
+    scene.pull.position.x,
+    scene.pull.position.y,
+    ballDef.radius,
+    {
+      restitution: ballDef.restitution,
+      frictionAir: ballDef.frictionAir,
+    },
+  );
 
-  let x = scene.pull.position.x;
-  let y = scene.pull.position.y;
-  let vx = velocity.x;
-  let vy = velocity.y;
+  Matter.Body.setMass(simBall, ballDef.mass);
+  Matter.Body.setVelocity(simBall, velocity);
+  Matter.World.add(simEngine.world, simBall);
 
   for (let index = 0; index < steps * stepTime; index += 1) {
     if (index % stepTime === 0) {
-      points.push({ x, y });
+      points.push({ x: simBall.position.x, y: simBall.position.y });
     }
 
-    x += vx;
-    y += vy;
-    vx *= airFactor;
-    vy = vy * airFactor + gravityPerFrame;
+    Matter.Engine.update(simEngine, 1000 / 60);
 
-    if (y > CONSTANTS.CANVAS_H || x > CONSTANTS.CANVAS_W + 120 || x < -120) break;
+    if (
+      simBall.position.y > CONSTANTS.CANVAS_H ||
+      simBall.position.x > CONSTANTS.CANVAS_W + 120 ||
+      simBall.position.x < -120
+    ) {
+      break;
+    }
   }
 
+  Matter.Engine.clear(simEngine);
   return points;
 }
 
@@ -490,9 +504,12 @@ function getGestureLockedPoint(scene, handPoint) {
     return handPoint;
   }
 
+  const offsetX = handPoint.x - scene.gestureLock.handStart.x;
+  const offsetY = handPoint.y - scene.gestureLock.handStart.y;
+
   return {
-    x: scene.gestureLock.origin.x + (handPoint.x - scene.gestureLock.handStart.x),
-    y: scene.gestureLock.origin.y + (handPoint.y - scene.gestureLock.handStart.y),
+    x: scene.gestureLock.origin.x + offsetX,
+    y: scene.gestureLock.origin.y + offsetY,
   };
 }
 
@@ -501,8 +518,9 @@ function updateDragging(scene, point, source = scene.dragSource) {
   if (!nextPoint) return;
 
   scene.gesture.locked = source === "gesture";
-  scene.gesture.lockPoint = source === "gesture" ? clonePoint(nextPoint) : null;
   scene.pull = clampPull(nextPoint);
+  scene.gesture.lockPoint =
+    source === "gesture" ? clonePoint(CONSTANTS.SLINGSHOT_ORIGIN) : null;
   scene.tension = scene.pull.distance / CONSTANTS.MAX_PULL_DIST;
   scene.trajectoryPoints = getTrajectoryPoints(scene, scene.pull.vector, scene.pull.distance);
 }
@@ -712,7 +730,7 @@ export function handleGestureFrame(scene, gestureFrame) {
     handCenter: gestureFrame.handCenter ?? null,
     inZone: Boolean(gestureFrame.inZone),
     locked: scene.dragSource === "gesture",
-    lockPoint: scene.gestureLock?.origin ? { ...scene.gestureLock.origin } : null,
+    lockPoint: scene.dragSource === "gesture" ? { ...CONSTANTS.SLINGSHOT_ORIGIN } : null,
   };
 
   if (gestureFrame.pinchState?.event === "PINCH_RELEASE" && scene.dragSource === "gesture") {
@@ -734,7 +752,6 @@ export function handleGestureFrame(scene, gestureFrame) {
   if (
     scene.subState === "READY" &&
     !scene.dragging &&
-    gestureFrame.inZone &&
     (
       gestureFrame.pinchState?.event === "PINCH_START" ||
       gestureFrame.pinchState?.event === "PINCH_HOLD"
