@@ -70,6 +70,13 @@ function drawHandSkeleton(canvas, hand, pinchActive) {
   drawScanlines(ctx, width, height);
 }
 
+function applyTutorialStep(stepNode, statusNode, isDone, isActive) {
+  if (!stepNode || !statusNode) return;
+  stepNode.classList.toggle("tutorial-step--done", isDone);
+  stepNode.classList.toggle("tutorial-step--active", !isDone && isActive);
+  statusNode.textContent = isDone ? "DONE" : isActive ? "LIVE" : "WAIT";
+}
+
 function markup() {
   return {
     home: `
@@ -114,16 +121,57 @@ function markup() {
               </div>
             </div>
             <div class="calibration-stack">
-              <div class="status-card">
-                <span class="status-card__label">HAND</span>
-                <span class="status-card__value" id="calibrationHandCheck">PENDING</span>
+              <div class="guide-card">
+                <span class="guide-card__eyebrow">TRAINING WALKTHROUGH</span>
+                <h2 class="guide-card__title">LEARN THE SHOT BEFORE YOU ENTER THE SITE.</h2>
+                <p class="guide-card__copy" id="calibrationGuideCopy">
+                  SHOW ONE HAND TO THE CAMERA TO BEGIN THE LIVE DEMO.
+                </p>
+                <div class="guide-card__progress" id="calibrationGuideProgress">STEP 1 / 4</div>
               </div>
-              <div class="status-card">
-                <span class="status-card__label">PINCH TEST</span>
-                <span class="status-card__value" id="calibrationPinchCheck">PENDING</span>
+
+              <div class="tutorial-steps">
+                <div class="tutorial-step" id="calibrationStepHand">
+                  <div>
+                    <span class="tutorial-step__index">01</span>
+                    <span class="tutorial-step__label">SHOW YOUR HAND</span>
+                  </div>
+                  <span class="tutorial-step__state" id="calibrationStepHandState">WAIT</span>
+                </div>
+                <div class="tutorial-step" id="calibrationStepZone">
+                  <div>
+                    <span class="tutorial-step__index">02</span>
+                    <span class="tutorial-step__label">MOVE INTO THE SLING ZONE</span>
+                  </div>
+                  <span class="tutorial-step__state" id="calibrationStepZoneState">WAIT</span>
+                </div>
+                <div class="tutorial-step" id="calibrationStepPull">
+                  <div>
+                    <span class="tutorial-step__index">03</span>
+                    <span class="tutorial-step__label">PINCH AND PULL BACK</span>
+                  </div>
+                  <span class="tutorial-step__state" id="calibrationStepPullState">WAIT</span>
+                </div>
+                <div class="tutorial-step" id="calibrationStepRelease">
+                  <div>
+                    <span class="tutorial-step__index">04</span>
+                    <span class="tutorial-step__label">OPEN TO RELEASE</span>
+                  </div>
+                  <span class="tutorial-step__state" id="calibrationStepReleaseState">WAIT</span>
+                </div>
               </div>
+
+              <div class="training-pad">
+                <div class="training-pad__zone"></div>
+                <div class="training-pad__origin"></div>
+                <div class="training-pad__hand" id="calibrationTrainingHand"></div>
+                <div class="training-pad__caption" id="calibrationTrainingCaption">
+                  WAITING FOR HAND INPUT.
+                </div>
+              </div>
+
               <div class="rail-block">
-                <span class="rail-block__label">PINCH TO TEST →</span>
+                <span class="rail-block__label">TRAINING PROGRESS</span>
                 <div class="rail-block__track">
                   <div id="calibrationRailFill" class="rail-block__fill"></div>
                 </div>
@@ -310,10 +358,20 @@ export function initScreens(callbacks) {
     calibrationOverlay: document.getElementById("calibrationOverlay"),
     calibrationDot: document.getElementById("calibrationDot"),
     calibrationFeedLabel: document.getElementById("calibrationFeedLabel"),
-    calibrationHandCheck: document.getElementById("calibrationHandCheck"),
-    calibrationPinchCheck: document.getElementById("calibrationPinchCheck"),
+    calibrationGuideCopy: document.getElementById("calibrationGuideCopy"),
+    calibrationGuideProgress: document.getElementById("calibrationGuideProgress"),
     calibrationRailFill: document.getElementById("calibrationRailFill"),
     calibrationTrackerCopy: document.getElementById("calibrationTrackerCopy"),
+    calibrationStepHand: document.getElementById("calibrationStepHand"),
+    calibrationStepHandState: document.getElementById("calibrationStepHandState"),
+    calibrationStepZone: document.getElementById("calibrationStepZone"),
+    calibrationStepZoneState: document.getElementById("calibrationStepZoneState"),
+    calibrationStepPull: document.getElementById("calibrationStepPull"),
+    calibrationStepPullState: document.getElementById("calibrationStepPullState"),
+    calibrationStepRelease: document.getElementById("calibrationStepRelease"),
+    calibrationStepReleaseState: document.getElementById("calibrationStepReleaseState"),
+    calibrationTrainingHand: document.getElementById("calibrationTrainingHand"),
+    calibrationTrainingCaption: document.getElementById("calibrationTrainingCaption"),
     enterSiteBtn: document.getElementById("enterSiteBtn"),
     levelCardGrid: document.getElementById("levelCardGrid"),
     completeLevelLabel: document.getElementById("completeLevelLabel"),
@@ -366,14 +424,45 @@ export function initScreens(callbacks) {
     updateHome({ continueEnabled }) {
       refs.homeContinueBtn.disabled = !continueEnabled;
     },
-    updateCalibration({ trackerStatus, handDetected, handPassed, pinchPassed, pinchActive }) {
+    updateCalibration({ trackerStatus, handDetected, pinchActive, tutorial }) {
       refs.calibrationDot.classList.toggle("calibration-dot--active", handDetected);
       refs.calibrationFeedLabel.textContent = handDetected ? "HAND DETECTED" : "WAITING FOR HAND";
-      refs.calibrationHandCheck.textContent = handPassed ? "HAND ✓" : "PENDING";
-      refs.calibrationPinchCheck.textContent = pinchPassed ? "PINCH ✓" : pinchActive ? "TESTING" : "PENDING";
-      refs.calibrationRailFill.style.width = pinchPassed ? "100%" : pinchActive ? "66%" : "0%";
+      refs.calibrationGuideCopy.textContent = tutorial.guideCopy;
+      refs.calibrationGuideProgress.textContent = tutorial.progressLabel;
+      refs.calibrationRailFill.style.width = `${tutorial.progressPct}%`;
       refs.calibrationTrackerCopy.textContent = trackerStatus;
-      refs.enterSiteBtn.disabled = !(handPassed && pinchPassed);
+      applyTutorialStep(
+        refs.calibrationStepHand,
+        refs.calibrationStepHandState,
+        tutorial.handDone,
+        tutorial.activeStep === 1,
+      );
+      applyTutorialStep(
+        refs.calibrationStepZone,
+        refs.calibrationStepZoneState,
+        tutorial.zoneDone,
+        tutorial.activeStep === 2,
+      );
+      applyTutorialStep(
+        refs.calibrationStepPull,
+        refs.calibrationStepPullState,
+        tutorial.pullDone,
+        tutorial.activeStep === 3,
+      );
+      applyTutorialStep(
+        refs.calibrationStepRelease,
+        refs.calibrationStepReleaseState,
+        tutorial.releaseDone,
+        tutorial.activeStep === 4,
+      );
+
+      refs.calibrationTrainingHand.classList.toggle("training-pad__hand--visible", tutorial.handVisible);
+      refs.calibrationTrainingHand.classList.toggle("training-pad__hand--pinched", pinchActive);
+      refs.calibrationTrainingHand.classList.toggle("training-pad__hand--in-zone", tutorial.inZone);
+      refs.calibrationTrainingHand.style.left = `${tutorial.handXPct}%`;
+      refs.calibrationTrainingHand.style.top = `${tutorial.handYPct}%`;
+      refs.calibrationTrainingCaption.textContent = tutorial.caption;
+      refs.enterSiteBtn.disabled = !tutorial.ready;
     },
     renderCalibrationOverlay({ hand, pinchActive }) {
       drawHandSkeleton(refs.calibrationOverlay, hand, pinchActive);

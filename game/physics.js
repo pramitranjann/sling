@@ -699,15 +699,19 @@ export function handleGestureFrame(scene, gestureFrame) {
   }
 
   if (
-    gestureFrame.pinchState?.event === "PINCH_START" &&
+    scene.subState === "READY" &&
+    !scene.dragging &&
     gestureFrame.inZone &&
-    scene.subState === "READY"
+    (
+      gestureFrame.pinchState?.event === "PINCH_START" ||
+      gestureFrame.pinchState?.event === "PINCH_HOLD"
+    )
   ) {
     beginDrag(scene, "gesture", gestureFrame.handCenter, "PINCH LOCKED. PULL BACK TO ARM.");
     return;
   }
 
-  if (gestureFrame.pinchState?.event === "PINCH_HOLD" && scene.dragSource === "gesture") {
+  if (gestureFrame.pinchState?.active && scene.dragSource === "gesture") {
     updateDragging(scene, gestureFrame.handCenter);
     scene.statusText = "PINCH HELD. RELEASE TO FIRE.";
   }

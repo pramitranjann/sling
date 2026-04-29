@@ -70,6 +70,20 @@ export function getHandCenter(hand) {
   };
 }
 
+export function getPinchAnchor(hand) {
+  const thumb = hand?.points?.[4];
+  const index = hand?.points?.[8];
+
+  if (thumb && index) {
+    return {
+      x: (thumb.x + index.x) * 0.5,
+      y: (thumb.y + index.y) * 0.5,
+    };
+  }
+
+  return getHandCenter(hand);
+}
+
 export function getActiveHand(hands = []) {
   if (hands.length === 0) return null;
   if (hands.length === 1) return hands[0];

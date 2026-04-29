@@ -30,7 +30,10 @@ export const state = {
   calibration: {
     handFrames: 0,
     handPassed: false,
+    zonePassed: false,
     pinchPassed: false,
+    pullPassed: false,
+    releasePassed: false,
   },
   preview: {
     complete: { levelId: 3, score: 4450, par: 4200, stars: 2, birdsRemaining: 1 },
@@ -87,7 +90,10 @@ export function ensureSaveExists() {
 export function resetCalibrationProgress() {
   state.calibration.handFrames = 0;
   state.calibration.handPassed = false;
+  state.calibration.zonePassed = false;
   state.calibration.pinchPassed = false;
+  state.calibration.pullPassed = false;
+  state.calibration.releasePassed = false;
 }
 
 export function getLevelRecord(levelId) {

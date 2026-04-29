@@ -6,7 +6,12 @@ import {
   stepPhysicsScene,
 } from "./game/physics.js";
 import { getLevelById, getLevelIndex, getNextLevel, loadLevelData } from "./game/levelLoader.js";
-import { getActiveHand, getHandCenter, isInSlingshotZone, updatePinchState } from "./gesture/gestureUtils.js";
+import {
+  getActiveHand,
+  getPinchAnchor,
+  isInSlingshotZone,
+  updatePinchState,
+} from "./gesture/gestureUtils.js";
 import { HandTracker } from "./gesture/vision.js";
 import { initWebcam } from "./gesture/webcamManager.js";
 import { drawScene, readPalette } from "./render/drawPhysics.js";
@@ -116,24 +121,108 @@ function updateHomeScreen() {
   ui.updateHome({ continueEnabled: hasSavedProgress() });
 }
 
-function updateCalibrationScreen(gestureFrame) {
+function buildCalibrationTutorial(gestureFrame) {
   const handDetected = Boolean(gestureFrame.activeHand);
+  const pullDistance = gestureFrame.handCenter
+    ? Math.hypot(
+        CONSTANTS.SLINGSHOT_ORIGIN.x - gestureFrame.handCenter.x,
+        CONSTANTS.SLINGSHOT_ORIGIN.y - gestureFrame.handCenter.y,
+      )
+    : 0;
 
   state.calibration.handFrames = handDetected ? state.calibration.handFrames + 1 : 0;
   if (state.calibration.handFrames >= 10) {
     state.calibration.handPassed = true;
   }
 
-  if (gestureFrame.pinchState.event === "PINCH_START") {
+  if (gestureFrame.inZone) {
+    state.calibration.zonePassed = true;
+  }
+
+  if (gestureFrame.pinchState.active && gestureFrame.inZone) {
     state.calibration.pinchPassed = true;
   }
+
+  if (gestureFrame.pinchState.active && pullDistance >= 42) {
+    state.calibration.pullPassed = true;
+  }
+
+  if (gestureFrame.pinchState.event === "PINCH_RELEASE" && state.calibration.pullPassed) {
+    state.calibration.releasePassed = true;
+  }
+
+  const pullStepDone = state.calibration.pinchPassed && state.calibration.pullPassed;
+  const completedSteps = [
+    state.calibration.handPassed,
+    state.calibration.zonePassed,
+    pullStepDone,
+    state.calibration.releasePassed,
+  ].filter(Boolean).length;
+
+  const activeStep = !state.calibration.handPassed
+    ? 1
+    : !state.calibration.zonePassed
+      ? 2
+      : !pullStepDone
+        ? 3
+        : !state.calibration.releasePassed
+          ? 4
+          : 4;
+
+  const guideCopy =
+    activeStep === 1
+      ? "HOLD ONE HAND CLEARLY IN FRAME UNTIL TRACKING STABILISES."
+      : activeStep === 2
+        ? "MOVE YOUR PINCHED FINGERS TOWARD THE YELLOW SLING ZONE."
+        : activeStep === 3
+          ? "KEEP THE PINCH CLOSED AND PULL BACK TO LOAD THE SHOT."
+          : state.calibration.releasePassed
+            ? "TRAINING SHOT COMPLETE. YOU'RE READY TO ENTER THE SITE."
+            : "OPEN YOUR FINGERS CLEANLY TO RELEASE THE TRAINING SHOT.";
+
+  const caption = !handDetected
+    ? "WAITING FOR HAND INPUT."
+    : !gestureFrame.inZone
+      ? "MOVE TOWARD THE SLING ZONE."
+      : !gestureFrame.pinchState.active
+        ? "CLOSE THUMB AND INDEX TO ARM THE SHOT."
+        : pullDistance < 42
+          ? "PULL FARTHER BACK WHILE HOLDING THE PINCH."
+          : "NOW OPEN YOUR FINGERS TO RELEASE.";
+
+  return {
+    handDone: state.calibration.handPassed,
+    zoneDone: state.calibration.zonePassed,
+    pullDone: pullStepDone,
+    releaseDone: state.calibration.releasePassed,
+    activeStep,
+    guideCopy,
+    caption,
+    handVisible: handDetected,
+    handXPct: gestureFrame.handCenter
+      ? (gestureFrame.handCenter.x / CONSTANTS.CANVAS_W) * 100
+      : (CONSTANTS.SLINGSHOT_ORIGIN.x / CONSTANTS.CANVAS_W) * 100,
+    handYPct: gestureFrame.handCenter
+      ? (gestureFrame.handCenter.y / CONSTANTS.CANVAS_H) * 100
+      : (CONSTANTS.SLINGSHOT_ORIGIN.y / CONSTANTS.CANVAS_H) * 100,
+    inZone: gestureFrame.inZone,
+    progressPct: (completedSteps / 4) * 100,
+    progressLabel: state.calibration.releasePassed
+      ? "TRAINING COMPLETE"
+      : `STEP ${activeStep} / 4`,
+    ready: state.calibration.releasePassed,
+  };
+}
+
+function updateCalibrationScreen(gestureFrame) {
+  const handDetected = Boolean(gestureFrame.activeHand);
+  const tutorial = buildCalibrationTutorial(gestureFrame);
 
   ui.updateCalibration({
     trackerStatus,
     handDetected,
-    handPassed: state.calibration.handPassed,
-    pinchPassed: state.calibration.pinchPassed,
     pinchActive: gestureFrame.pinchState.active,
+    tutorial,
   });
   ui.renderCalibrationOverlay({
     hand: gestureFrame.activeHand,
@@ -228,9 +317,8 @@ function transition(nextState, data = {}) {
     ui.updateCalibration({
       trackerStatus,
       handDetected: false,
-      handPassed: false,
-      pinchPassed: false,
       pinchActive: false,
+      tutorial: buildCalibrationTutorial(makeGestureFrame()),
     });
     void ensureGestureBoot();
     return;
@@ -286,11 +374,7 @@ function finalizeLevelFail(sceneRef) {
 }
 
 function handleStart() {
-  if (hasSavedProgress()) {
-    transition(APP_STATES.LEVEL_SELECT);
-  } else {
-    transition(APP_STATES.CALIBRATION);
-  }
+  transition(APP_STATES.CALIBRATION);
 }
 
 function handleContinue() {
@@ -435,7 +519,7 @@ function buildGestureFrame(now) {
     return { ...gestureFrame, pinchState };
   }
 
-  const handCenter = getHandCenter(activeHand);
+  const handCenter = getPinchAnchor(activeHand);
   pinchState = updatePinchState(activeHand, pinchState);
 
   return {
