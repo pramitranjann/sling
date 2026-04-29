@@ -232,6 +232,10 @@ function getTrajectoryPoints(scene, pullVector, pullDistance, steps = 40, stepTi
   return points;
 }
 
+function clonePoint(point) {
+  return point ? { x: point.x, y: point.y } : null;
+}
+
 function clampPull(point) {
   const dx = CONSTANTS.SLINGSHOT_ORIGIN.x - Math.min(point.x, CONSTANTS.SLINGSHOT_ORIGIN.x);
   const dy = CONSTANTS.SLINGSHOT_ORIGIN.y - point.y;
@@ -255,6 +259,7 @@ function clampPull(point) {
 function resetPull(scene) {
   scene.dragging = false;
   scene.dragSource = null;
+  scene.gestureLock = null;
   scene.tension = 0;
   scene.trajectoryPoints = [];
   scene.pull = {
@@ -269,10 +274,17 @@ function beginDrag(scene, source, point, message) {
 
   scene.dragging = true;
   scene.dragSource = source;
+  scene.gestureLock =
+    source === "gesture"
+      ? {
+          handStart: clonePoint(point),
+          origin: { ...CONSTANTS.SLINGSHOT_ORIGIN },
+        }
+      : null;
   scene.subState = "DRAGGING";
   scene.inputMode = source === "gesture" ? "GESTURE" : "MOUSE";
   scene.statusText = message;
-  updateDragging(scene, point);
+  updateDragging(scene, point, source);
   if (source === "gesture") {
     emitSceneEvent(scene, "PINCH_START");
   }
@@ -473,8 +485,24 @@ function bindCollisionHandlers(scene) {
   });
 }
 
-function updateDragging(scene, point) {
-  scene.pull = clampPull(point);
+function getGestureLockedPoint(scene, handPoint) {
+  if (!scene.gestureLock?.handStart || !handPoint) {
+    return handPoint;
+  }
+
+  return {
+    x: scene.gestureLock.origin.x + (handPoint.x - scene.gestureLock.handStart.x),
+    y: scene.gestureLock.origin.y + (handPoint.y - scene.gestureLock.handStart.y),
+  };
+}
+
+function updateDragging(scene, point, source = scene.dragSource) {
+  const nextPoint = source === "gesture" ? getGestureLockedPoint(scene, point) : point;
+  if (!nextPoint) return;
+
+  scene.gesture.locked = source === "gesture";
+  scene.gesture.lockPoint = source === "gesture" ? clonePoint(nextPoint) : null;
+  scene.pull = clampPull(nextPoint);
   scene.tension = scene.pull.distance / CONSTANTS.MAX_PULL_DIST;
   scene.trajectoryPoints = getTrajectoryPoints(scene, scene.pull.vector, scene.pull.distance);
 }
@@ -620,7 +648,10 @@ export function createPhysicsScene(level, hooks = {}) {
       pinchActive: false,
       handCenter: null,
       inZone: false,
+      locked: false,
+      lockPoint: null,
     },
+    gestureLock: null,
   };
 
   Matter.World.add(scene.world, createBounds(Matter));
@@ -680,6 +711,8 @@ export function handleGestureFrame(scene, gestureFrame) {
     pinchActive: Boolean(gestureFrame.pinchState?.active),
     handCenter: gestureFrame.handCenter ?? null,
     inZone: Boolean(gestureFrame.inZone),
+    locked: scene.dragSource === "gesture",
+    lockPoint: scene.gestureLock?.origin ? { ...scene.gestureLock.origin } : null,
   };
 
   if (gestureFrame.pinchState?.event === "PINCH_RELEASE" && scene.dragSource === "gesture") {
@@ -707,13 +740,13 @@ export function handleGestureFrame(scene, gestureFrame) {
       gestureFrame.pinchState?.event === "PINCH_HOLD"
     )
   ) {
-    beginDrag(scene, "gesture", gestureFrame.handCenter, "PINCH LOCKED. PULL BACK TO ARM.");
+    beginDrag(scene, "gesture", gestureFrame.handCenter, "PINCH LOCKED. PULL ANYWHERE TO ARM.");
     return;
   }
 
   if (gestureFrame.pinchState?.active && scene.dragSource === "gesture") {
-    updateDragging(scene, gestureFrame.handCenter);
-    scene.statusText = "PINCH HELD. RELEASE TO FIRE.";
+    updateDragging(scene, gestureFrame.handCenter, "gesture");
+    scene.statusText = "PINCH HELD. OPEN ANYWHERE TO FIRE.";
   }
 }
 

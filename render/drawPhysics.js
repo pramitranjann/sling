@@ -288,17 +288,37 @@ function drawTrajectoryArc(ctx, scene, palette) {
   }
 
   ctx.stroke();
+  ctx.restore();
+}
 
-  const last = points[points.length - 1];
-  const prev = points[points.length - 2];
-  const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+function drawLaunchArrow(ctx, scene, palette) {
+  if (!scene.dragging || scene.pull.distance <= 6) return;
 
-  ctx.setLineDash([]);
-  ctx.fillStyle = palette.black;
+  const start = {
+    x: scene.pull.position.x + scene.pull.vector.x * 18,
+    y: scene.pull.position.y + scene.pull.vector.y * 18,
+  };
+  const end = {
+    x: start.x + scene.pull.vector.x * 72,
+    y: start.y + scene.pull.vector.y * 72,
+  };
+  const angle = Math.atan2(scene.pull.vector.y, scene.pull.vector.x);
+  const wing = 14;
+
+  ctx.save();
+  ctx.strokeStyle = palette.yellow;
+  ctx.fillStyle = palette.yellow;
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(last.x, last.y);
-  ctx.lineTo(last.x - 10 * Math.cos(angle - 0.4), last.y - 10 * Math.sin(angle - 0.4));
-  ctx.lineTo(last.x - 10 * Math.cos(angle + 0.4), last.y - 10 * Math.sin(angle + 0.4));
+  ctx.moveTo(start.x, start.y);
+  ctx.lineTo(end.x, end.y);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(end.x, end.y);
+  ctx.lineTo(end.x - wing * Math.cos(angle - 0.55), end.y - wing * Math.sin(angle - 0.55));
+  ctx.lineTo(end.x - wing * Math.cos(angle + 0.55), end.y - wing * Math.sin(angle + 0.55));
   ctx.closePath();
   ctx.fill();
   ctx.restore();
@@ -362,14 +382,17 @@ function drawPinchZoneRing(ctx, scene, palette) {
 }
 
 function drawHandCursor(ctx, scene, palette) {
-  const handCenter = scene.gesture?.handCenter;
+  const handCenter =
+    scene.gesture?.locked && scene.dragSource === "gesture"
+      ? scene.gesture?.lockPoint
+      : scene.gesture?.handCenter;
   if (!handCenter) return;
 
   ctx.save();
   ctx.strokeStyle = scene.gesture.pinchActive ? palette.yellow : palette.black;
   ctx.fillStyle = scene.gesture.pinchActive ? palette.yellow : "rgba(17, 17, 17, 0.25)";
   ctx.lineWidth = 2;
-  ctx.globalAlpha = scene.gesture.inZone ? 1 : 0.7;
+  ctx.globalAlpha = scene.gesture.locked || scene.gesture.inZone ? 1 : 0.7;
   ctx.beginPath();
   ctx.arc(handCenter.x, handCenter.y, 10, 0, Math.PI * 2);
   ctx.stroke();
@@ -392,6 +415,7 @@ export function drawScene({ scene, physicsCtx, vfxCtx, palette }) {
   drawCurrentBall(physicsCtx, scene, palette);
 
   drawTrajectoryArc(vfxCtx, scene, palette);
+  drawLaunchArrow(vfxCtx, scene, palette);
   drawPinchZoneRing(vfxCtx, scene, palette);
   drawHandCursor(vfxCtx, scene, palette);
   drawShockwaves(vfxCtx, scene, palette);

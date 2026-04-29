@@ -109,27 +109,82 @@ function markup() {
             <span class="screen-bar__title">CALIBRATION</span>
             <span class="screen-bar__spacer"></span>
           </header>
-          <div class="screen-content calibration-layout">
-            <div class="calibration-stage">
-              <div class="calibration-feed">
+          <div class="screen-content calibration-shell">
+            <div class="calibration-demo game-root">
+              <div class="game-root__bg grid-bg"></div>
+
+              <div class="calibration-demo__slingshot">
+                <span class="calibration-demo__post calibration-demo__post--left"></span>
+                <span class="calibration-demo__post calibration-demo__post--right"></span>
+                <span class="calibration-demo__fork calibration-demo__fork--left"></span>
+                <span class="calibration-demo__fork calibration-demo__fork--right"></span>
+              </div>
+
+              <div class="calibration-demo__zone"></div>
+              <div class="calibration-demo__origin"></div>
+              <div class="calibration-demo__hand" id="calibrationTrainingHand"></div>
+
+              <div class="webcam-window webcam-window--calibration">
                 <video id="calibrationVideo" autoplay playsinline muted></video>
                 <canvas id="calibrationOverlay" width="1280" height="720"></canvas>
-                <div class="calibration-feed__status">
-                  <span class="calibration-dot" id="calibrationDot"></span>
+                <div class="webcam-window__pinch" id="calibrationPinchDot"></div>
+                <div class="webcam-window__rec" id="calibrationRecDot"></div>
+                <div class="webcam-window__label">
+                  <span>TRAINING CAM</span>
                   <span id="calibrationFeedLabel">WAITING FOR HAND</span>
                 </div>
               </div>
-            </div>
-            <div class="calibration-stack">
-              <div class="guide-card">
+
+              <div class="hud-top calibration-demo__hud">
+                <div class="hud-group">
+                  <div class="level-badge">
+                    <span class="level-badge__label">MODE</span>
+                    <span class="level-badge__value">TRAIN</span>
+                  </div>
+                  <div class="hud-meta">
+                    <span class="hud-meta__label">TRACKER</span>
+                    <span class="hud-meta__value" id="calibrationTrackerCopy">OFFLINE</span>
+                  </div>
+                </div>
+                <div class="hud-group hud-group--center">
+                  <div class="hud-meta">
+                    <span class="hud-meta__label">STEP</span>
+                    <span class="hud-meta__value" id="calibrationGuideProgress">STEP 1 / 4</span>
+                  </div>
+                </div>
+                <div class="hud-score">
+                  <span class="hud-score__label">STATUS</span>
+                  <span class="hud-score__value" id="calibrationDemoStatus">WAIT</span>
+                </div>
+              </div>
+
+              <div class="calibration-demo__guide guide-card">
                 <span class="guide-card__eyebrow">TRAINING WALKTHROUGH</span>
                 <h2 class="guide-card__title">LEARN THE SHOT BEFORE YOU ENTER THE SITE.</h2>
                 <p class="guide-card__copy" id="calibrationGuideCopy">
                   SHOW ONE HAND TO THE CAMERA TO BEGIN THE LIVE DEMO.
                 </p>
-                <div class="guide-card__progress" id="calibrationGuideProgress">STEP 1 / 4</div>
               </div>
 
+              <div class="hud-bottom calibration-demo__footer">
+                <div class="hud-bottom__group">
+                  <div class="hud-meta hud-meta--dark">
+                    <span class="hud-meta__label">INSTRUCTION</span>
+                    <span class="hud-meta__value calibration-demo__caption" id="calibrationTrainingCaption">
+                      WAITING FOR HAND INPUT.
+                    </span>
+                  </div>
+                </div>
+                <div class="hud-bottom__group hud-bottom__group--right calibration-demo__progress">
+                  <span class="rail-block__label">TRAINING PROGRESS</span>
+                  <div class="rail-block__track">
+                    <div id="calibrationRailFill" class="rail-block__fill"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="calibration-stack">
               <div class="tutorial-steps">
                 <div class="tutorial-step" id="calibrationStepHand">
                   <div>
@@ -160,24 +215,12 @@ function markup() {
                   <span class="tutorial-step__state" id="calibrationStepReleaseState">WAIT</span>
                 </div>
               </div>
-
-              <div class="training-pad">
-                <div class="training-pad__zone"></div>
-                <div class="training-pad__origin"></div>
-                <div class="training-pad__hand" id="calibrationTrainingHand"></div>
-                <div class="training-pad__caption" id="calibrationTrainingCaption">
-                  WAITING FOR HAND INPUT.
+              <div class="calibration-actions">
+                <div class="tracker-copy calibration-actions__copy">
+                  LOCK THE PINCH IN THE YELLOW ZONE, THEN PULL AND RELEASE FROM ANYWHERE.
                 </div>
+                <button id="enterSiteBtn" class="btn-primary" type="button" disabled>ENTER SITE</button>
               </div>
-
-              <div class="rail-block">
-                <span class="rail-block__label">TRAINING PROGRESS</span>
-                <div class="rail-block__track">
-                  <div id="calibrationRailFill" class="rail-block__fill"></div>
-                </div>
-              </div>
-              <div class="tracker-copy" id="calibrationTrackerCopy">TRACKER OFFLINE</div>
-              <button id="enterSiteBtn" class="btn-primary" type="button" disabled>ENTER SITE</button>
             </div>
           </div>
         </section>
@@ -193,7 +236,14 @@ function markup() {
             <span class="screen-bar__title">LEVEL SELECT</span>
             <span class="screen-bar__spacer"></span>
           </header>
-          <div class="screen-content">
+          <div class="screen-content level-select-layout">
+            <div class="level-select-copy">
+              <span class="guide-card__eyebrow">UNLOCK PATH</span>
+              <h2 class="guide-card__title">CLEAR EACH LIVE SITE TO OPEN THE NEXT DEMOLITION TEST.</h2>
+              <p class="guide-card__copy">
+                Each cleared site opens the next demolition test. Locked cards pulse on standby until the previous site is complete.
+              </p>
+            </div>
             <div id="levelCardGrid" class="level-card-grid"></div>
           </div>
         </section>
@@ -315,7 +365,7 @@ function markup() {
           </header>
           <div class="screen-content fail-layout">
             <div class="fail-row">
-              <span>PIGS REMAINING</span>
+              <span>TARGETS REMAINING</span>
               <span id="failPigsRemaining">1</span>
             </div>
             <div class="fail-row">
@@ -356,10 +406,12 @@ export function initScreens(callbacks) {
     homeContinueBtn: document.getElementById("homeContinueBtn"),
     calibrationVideo: document.getElementById("calibrationVideo"),
     calibrationOverlay: document.getElementById("calibrationOverlay"),
-    calibrationDot: document.getElementById("calibrationDot"),
+    calibrationPinchDot: document.getElementById("calibrationPinchDot"),
+    calibrationRecDot: document.getElementById("calibrationRecDot"),
     calibrationFeedLabel: document.getElementById("calibrationFeedLabel"),
     calibrationGuideCopy: document.getElementById("calibrationGuideCopy"),
     calibrationGuideProgress: document.getElementById("calibrationGuideProgress"),
+    calibrationDemoStatus: document.getElementById("calibrationDemoStatus"),
     calibrationRailFill: document.getElementById("calibrationRailFill"),
     calibrationTrackerCopy: document.getElementById("calibrationTrackerCopy"),
     calibrationStepHand: document.getElementById("calibrationStepHand"),
@@ -425,12 +477,22 @@ export function initScreens(callbacks) {
       refs.homeContinueBtn.disabled = !continueEnabled;
     },
     updateCalibration({ trackerStatus, handDetected, pinchActive, tutorial }) {
-      refs.calibrationDot.classList.toggle("calibration-dot--active", handDetected);
       refs.calibrationFeedLabel.textContent = handDetected ? "HAND DETECTED" : "WAITING FOR HAND";
       refs.calibrationGuideCopy.textContent = tutorial.guideCopy;
       refs.calibrationGuideProgress.textContent = tutorial.progressLabel;
       refs.calibrationRailFill.style.width = `${tutorial.progressPct}%`;
       refs.calibrationTrackerCopy.textContent = trackerStatus;
+      if (refs.calibrationDemoStatus) {
+        refs.calibrationDemoStatus.textContent = tutorial.ready
+          ? "READY"
+          : pinchActive
+            ? "PINCHED"
+            : handDetected
+              ? "LIVE"
+              : "WAIT";
+      }
+      refs.calibrationPinchDot?.classList.toggle("webcam-window__pinch--active", pinchActive);
+      refs.calibrationRecDot?.classList.toggle("webcam-window__rec--active", handDetected);
       applyTutorialStep(
         refs.calibrationStepHand,
         refs.calibrationStepHandState,
@@ -456,9 +518,9 @@ export function initScreens(callbacks) {
         tutorial.activeStep === 4,
       );
 
-      refs.calibrationTrainingHand.classList.toggle("training-pad__hand--visible", tutorial.handVisible);
-      refs.calibrationTrainingHand.classList.toggle("training-pad__hand--pinched", pinchActive);
-      refs.calibrationTrainingHand.classList.toggle("training-pad__hand--in-zone", tutorial.inZone);
+      refs.calibrationTrainingHand.classList.toggle("calibration-demo__hand--visible", tutorial.handVisible);
+      refs.calibrationTrainingHand.classList.toggle("calibration-demo__hand--pinched", pinchActive);
+      refs.calibrationTrainingHand.classList.toggle("calibration-demo__hand--in-zone", tutorial.inZone);
       refs.calibrationTrainingHand.style.left = `${tutorial.handXPct}%`;
       refs.calibrationTrainingHand.style.top = `${tutorial.handYPct}%`;
       refs.calibrationTrainingCaption.textContent = tutorial.caption;

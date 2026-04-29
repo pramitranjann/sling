@@ -185,22 +185,22 @@ function buildCalibrationTutorial(gestureFrame) {
     activeStep === 1
       ? "HOLD ONE HAND CLEARLY IN FRAME UNTIL TRACKING STABILISES."
       : activeStep === 2
-        ? "MOVE YOUR PINCHED FINGERS TOWARD THE YELLOW SLING ZONE."
+        ? "MOVE YOUR PINCHED FINGERS INTO THE YELLOW SLING ZONE TO LOCK THE SHOT."
         : activeStep === 3
-          ? "KEEP THE PINCH CLOSED AND PULL BACK TO LOAD THE SHOT."
+          ? "KEEP THE PINCH CLOSED, THEN PULL BACK FROM ANY POSITION TO LOAD THE SHOT."
           : state.calibration.releasePassed
             ? "TRAINING SHOT COMPLETE. YOU'RE READY TO ENTER THE SITE."
-            : "OPEN YOUR FINGERS CLEANLY TO RELEASE THE TRAINING SHOT.";
+            : "OPEN YOUR FINGERS CLEANLY FROM ANY POSITION TO RELEASE THE TRAINING SHOT.";
 
   const caption = !handDetected
     ? "WAITING FOR HAND INPUT."
     : !gestureFrame.inZone
-      ? "MOVE TOWARD THE SLING ZONE."
+      ? "MOVE INTO THE LOCK ZONE."
       : !gestureFrame.pinchState.active
-        ? "CLOSE THUMB AND INDEX TO ARM THE SHOT."
+        ? "PINCH TO LOCK THE SHOT."
         : pullDistance < 42
           ? "PULL FARTHER BACK WHILE HOLDING THE PINCH."
-          : "NOW OPEN YOUR FINGERS TO RELEASE.";
+          : "OPEN YOUR FINGERS ANYWHERE TO RELEASE.";
 
   return {
     handDone: state.calibration.handPassed,
