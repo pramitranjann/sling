@@ -201,19 +201,32 @@ function getLaunchVelocity(pullVector, pullDistance) {
 
 function getTrajectoryPoints(scene, pullVector, pullDistance, steps = 40, stepTime = 3) {
   const points = [];
+  const activeBird = getActiveBird(scene);
+  const ballDef = CONSTANTS.BALL[activeBird?.variant] ?? CONSTANTS.BALL.standard;
   const velocity = getLaunchVelocity(pullVector, pullDistance);
+  const gravityPerFrame =
+    scene.engine.gravity.y *
+    scene.engine.gravity.scale *
+    (1000 / 60) *
+    (1000 / 60);
+  const airFactor = Math.max(0, 1 - ballDef.frictionAir);
+
   let x = scene.pull.position.x;
   let y = scene.pull.position.y;
   let vx = velocity.x;
   let vy = velocity.y;
 
-  for (let index = 0; index < steps; index += 1) {
-    points.push({ x, y });
-    x += vx * stepTime;
-    y += vy * stepTime;
-    vy += scene.engine.gravity.y * stepTime;
+  for (let index = 0; index < steps * stepTime; index += 1) {
+    if (index % stepTime === 0) {
+      points.push({ x, y });
+    }
 
-    if (y > CONSTANTS.CANVAS_H) break;
+    x += vx;
+    y += vy;
+    vx *= airFactor;
+    vy = vy * airFactor + gravityPerFrame;
+
+    if (y > CONSTANTS.CANVAS_H || x > CONSTANTS.CANVAS_W + 120 || x < -120) break;
   }
 
   return points;
@@ -669,6 +682,15 @@ export function handleGestureFrame(scene, gestureFrame) {
     inZone: Boolean(gestureFrame.inZone),
   };
 
+  if (gestureFrame.pinchState?.event === "PINCH_RELEASE" && scene.dragSource === "gesture") {
+    if (scene.pull.distance > 6) {
+      launch(scene);
+    } else {
+      cancelDrag(scene, "PINCH TOO SHORT. RESET TO SLINGSHOT.");
+    }
+    return;
+  }
+
   if (!gestureFrame.activeHand) {
     if (scene.dragging && scene.dragSource === "gesture") {
       cancelDrag(scene, "HAND LOST. BALL RESET TO SLINGSHOT.");
@@ -688,15 +710,6 @@ export function handleGestureFrame(scene, gestureFrame) {
   if (gestureFrame.pinchState?.event === "PINCH_HOLD" && scene.dragSource === "gesture") {
     updateDragging(scene, gestureFrame.handCenter);
     scene.statusText = "PINCH HELD. RELEASE TO FIRE.";
-    return;
-  }
-
-  if (gestureFrame.pinchState?.event === "PINCH_RELEASE" && scene.dragSource === "gesture") {
-    if (scene.pull.distance > 6) {
-      launch(scene);
-    } else {
-      cancelDrag(scene, "PINCH TOO SHORT. RESET TO SLINGSHOT.");
-    }
   }
 }
 

@@ -1,4 +1,74 @@
+import { CONSTANTS } from "../constants.js";
 import { buildLevelCards } from "./levelSelect.js";
+
+const HAND_CONNECTIONS = [
+  [0, 1], [1, 2], [2, 3], [3, 4],
+  [0, 5], [5, 6], [6, 7], [7, 8],
+  [5, 9], [9, 10], [10, 11], [11, 12],
+  [9, 13], [13, 14], [14, 15], [15, 16],
+  [13, 17], [17, 18], [18, 19], [19, 20],
+  [0, 17],
+];
+
+function clearOverlay(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawScanlines(ctx, width, height) {
+  ctx.save();
+  ctx.fillStyle = "rgba(0, 0, 0, 0.06)";
+  for (let y = 0; y < height; y += 2) {
+    ctx.fillRect(0, y, width, 1);
+  }
+  ctx.restore();
+}
+
+function drawHandSkeleton(canvas, hand, pinchActive) {
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  const { width, height } = canvas;
+  ctx.clearRect(0, 0, width, height);
+
+  if (!hand?.points?.length) {
+    drawScanlines(ctx, width, height);
+    return;
+  }
+
+  const points = hand.points.map((point) => ({
+    x: (point.x / CONSTANTS.CANVAS_W) * width,
+    y: (point.y / CONSTANTS.CANVAS_H) * height,
+  }));
+
+  ctx.save();
+  ctx.strokeStyle = pinchActive ? "#FFD100" : "rgba(255, 209, 0, 0.68)";
+  ctx.fillStyle = pinchActive ? "#FFD100" : "rgba(255, 209, 0, 0.56)";
+  ctx.lineWidth = Math.max(1.2, width / 180);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  HAND_CONNECTIONS.forEach(([from, to]) => {
+    const a = points[from];
+    const b = points[to];
+    if (!a || !b) return;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  });
+
+  points.forEach((point, index) => {
+    const radius = index === 4 || index === 8 ? Math.max(3.5, width / 80) : Math.max(2, width / 120);
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+  drawScanlines(ctx, width, height);
+}
 
 function markup() {
   return {
@@ -36,6 +106,7 @@ function markup() {
             <div class="calibration-stage">
               <div class="calibration-feed">
                 <video id="calibrationVideo" autoplay playsinline muted></video>
+                <canvas id="calibrationOverlay" width="1280" height="720"></canvas>
                 <div class="calibration-feed__status">
                   <span class="calibration-dot" id="calibrationDot"></span>
                   <span id="calibrationFeedLabel">WAITING FOR HAND</span>
@@ -92,6 +163,7 @@ function markup() {
 
             <div class="webcam-window" id="gameplayWebcamWindow">
               <video id="gameplayVideo" autoplay playsinline muted></video>
+              <canvas id="gameplayOverlay" width="240" height="180"></canvas>
               <div class="webcam-window__pinch" id="gameplayPinchDot"></div>
               <div class="webcam-window__rec" id="gameplayRecDot"></div>
               <div class="webcam-window__label">
@@ -235,6 +307,7 @@ export function initScreens(callbacks) {
   const refs = {
     homeContinueBtn: document.getElementById("homeContinueBtn"),
     calibrationVideo: document.getElementById("calibrationVideo"),
+    calibrationOverlay: document.getElementById("calibrationOverlay"),
     calibrationDot: document.getElementById("calibrationDot"),
     calibrationFeedLabel: document.getElementById("calibrationFeedLabel"),
     calibrationHandCheck: document.getElementById("calibrationHandCheck"),
@@ -253,6 +326,7 @@ export function initScreens(callbacks) {
     failPigsRemaining: document.getElementById("failPigsRemaining"),
     failScore: document.getElementById("failScore"),
     gameplayVideo: document.getElementById("gameplayVideo"),
+    gameplayOverlay: document.getElementById("gameplayOverlay"),
     gameplayCamLabel: document.getElementById("gameplayCamLabel"),
     gameplayPinchDot: document.getElementById("gameplayPinchDot"),
     gameplayRecDot: document.getElementById("gameplayRecDot"),
@@ -301,6 +375,9 @@ export function initScreens(callbacks) {
       refs.calibrationTrackerCopy.textContent = trackerStatus;
       refs.enterSiteBtn.disabled = !(handPassed && pinchPassed);
     },
+    renderCalibrationOverlay({ hand, pinchActive }) {
+      drawHandSkeleton(refs.calibrationOverlay, hand, pinchActive);
+    },
     renderLevelSelect({ levels, currentLevelId, saveHelpers }) {
       buildLevelCards({
         container: refs.levelCardGrid,
@@ -327,6 +404,13 @@ export function initScreens(callbacks) {
       refs.gameplayCamLabel.textContent = trackerStatus;
       refs.gameplayRecDot.classList.toggle("webcam-window__rec--active", handDetected);
       refs.gameplayPinchDot.classList.toggle("webcam-window__pinch--active", pinchActive);
+    },
+    renderGameplayOverlay({ hand, pinchActive }) {
+      drawHandSkeleton(refs.gameplayOverlay, hand, pinchActive);
+    },
+    clearWebcamOverlays() {
+      clearOverlay(refs.calibrationOverlay);
+      clearOverlay(refs.gameplayOverlay);
     },
     attachSharedStream(stream) {
       [refs.calibrationVideo, refs.gameplayVideo].forEach((video) => {

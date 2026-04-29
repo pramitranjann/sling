@@ -193,6 +193,14 @@ select {
   transform: scaleX(-1);
 }
 
+.calibration-feed canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 .calibration-feed__status {
   position: absolute;
   left: var(--space-3);
@@ -391,6 +399,14 @@ select {
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
+}
+
+.webcam-window canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .webcam-window__label {

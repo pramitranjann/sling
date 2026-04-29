@@ -135,6 +135,10 @@ function updateCalibrationScreen(gestureFrame) {
     pinchPassed: state.calibration.pinchPassed,
     pinchActive: gestureFrame.pinchState.active,
   });
+  ui.renderCalibrationOverlay({
+    hand: gestureFrame.activeHand,
+    pinchActive: gestureFrame.pinchState.active,
+  });
 }
 
 function updateGameplayHUD() {
@@ -162,6 +166,10 @@ function updateGameplayCamera(gestureFrame) {
   ui.updateGameplayCamera({
     trackerStatus,
     handDetected: Boolean(gestureFrame.activeHand),
+    pinchActive: gestureFrame.pinchState.active,
+  });
+  ui.renderGameplayOverlay({
+    hand: gestureFrame.activeHand,
     pinchActive: gestureFrame.pinchState.active,
   });
 }
@@ -201,6 +209,10 @@ function renderLevelSelect() {
 function transition(nextState, data = {}) {
   if (state.current === APP_STATES.GAMEPLAY && nextState !== APP_STATES.GAMEPLAY) {
     destroyScene();
+  }
+
+  if (nextState !== APP_STATES.CALIBRATION && nextState !== APP_STATES.GAMEPLAY) {
+    ui.clearWebcamOverlays();
   }
 
   setAppState(nextState);
@@ -417,7 +429,9 @@ function buildGestureFrame(now) {
   const activeHand = getActiveHand(hands);
 
   if (!activeHand) {
-    pinchState = { active: false, event: "IDLE" };
+    pinchState = pinchState.active
+      ? { active: false, event: "PINCH_RELEASE" }
+      : { active: false, event: "IDLE" };
     return { ...gestureFrame, pinchState };
   }
 
