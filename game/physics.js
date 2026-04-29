@@ -1,5 +1,9 @@
 import { CONSTANTS } from "../constants.js";
 
+function emitSceneEvent(scene, type, detail = {}) {
+  scene.onEvent?.(type, detail);
+}
+
 function getMatter() {
   if (!window.Matter) {
     throw new Error("Matter.js is not available.");
@@ -256,6 +260,9 @@ function beginDrag(scene, source, point, message) {
   scene.inputMode = source === "gesture" ? "GESTURE" : "MOUSE";
   scene.statusText = message;
   updateDragging(scene, point);
+  if (source === "gesture") {
+    emitSceneEvent(scene, "PINCH_START");
+  }
   return true;
 }
 
@@ -266,6 +273,7 @@ function cancelDrag(scene, message) {
 }
 
 function completeShot(scene, message) {
+  emitSceneEvent(scene, "CHARGE_FUSE_STOP");
   if (scene.currentBall) {
     removeBody(scene, scene.currentBall);
   }
@@ -296,6 +304,11 @@ function damageBlock(scene, block, amount) {
   if (!block || block._removed) return;
 
   block.health -= amount;
+  emitSceneEvent(scene, "BLOCK_DAMAGED", {
+    blockType: block.blockType,
+    health: block.health,
+    maxHealth: block.maxHealth,
+  });
   if (block.health <= 0) {
     block._removed = true;
     destroyBlock(scene, block);
@@ -315,6 +328,10 @@ function destroyBlock(scene, block) {
 
   createShockwave(scene, block.position, 48);
   scene.score += CONSTANTS.BLOCK_SCORE[block.blockType] ?? 0;
+  emitSceneEvent(scene, "BLOCK_DESTROYED", {
+    blockType: block.blockType,
+    score: scene.score,
+  });
   removeBody(scene, block);
 }
 
@@ -322,10 +339,19 @@ function damagePig(scene, pig, amount) {
   if (!pig || pig.dead) return;
 
   pig.health -= amount;
+  emitSceneEvent(scene, "PIG_DAMAGED", {
+    variant: pig.pigVariant,
+    health: pig.health,
+    maxHealth: pig.maxHealth,
+  });
   if (pig.health <= 0) {
     pig.dead = true;
     scene.score += CONSTANTS.PIG_SCORE[pig.pigVariant] ?? 0;
     createShockwave(scene, pig.position, 42);
+    emitSceneEvent(scene, "PIG_DESTROYED", {
+      variant: pig.pigVariant,
+      score: scene.score,
+    });
 
     const timer = window.setTimeout(() => {
       removeBody(scene, pig);
@@ -343,6 +369,7 @@ function detonateCharge(scene, ball) {
 
   const blastRadius = ball.def.blastRadius;
   createShockwave(scene, ball.position, blastRadius);
+  emitSceneEvent(scene, "CHARGE_DETONATE", { radius: blastRadius });
 
   scene.blocks.slice().forEach((block) => {
     const distance = scene.Matter.Vector.magnitude(
@@ -368,14 +395,19 @@ function detonateCharge(scene, ball) {
 function scheduleCharge(scene, ball) {
   if (ball._chargeScheduled || ball.def.blastDelay <= 0) return;
   ball._chargeScheduled = true;
+  emitSceneEvent(scene, "CHARGE_FUSE_START", { delay: ball.def.blastDelay });
 
   const timer = window.setTimeout(() => detonateCharge(scene, ball), ball.def.blastDelay * 1000);
   scene.activeTimers.add(timer);
 }
 
 function handleBallImpact(scene, ball, other, relVel) {
-  if (relVel < CONSTANTS.BALL_DAMAGE_THRESHOLD) return;
+  if (relVel < CONSTANTS.BALL_DAMAGE_THRESHOLD) {
+    emitSceneEvent(scene, "BALL_IMPACT_LIGHT", { velocity: relVel, target: other.label });
+    return;
+  }
   if (ball.hasImpacted && !ball.def.piercing) return;
+  emitSceneEvent(scene, "BALL_IMPACT_HEAVY", { velocity: relVel, target: other.label });
 
   if (other.label === "block") {
     damageBlock(scene, other, CONSTANTS.BLOCK_DAMAGE_FROM_BALL);
@@ -449,6 +481,10 @@ function launch(scene) {
   scene.launchStartedAt = performance.now();
   scene.statusText = `BALL AWAY. ${activeBird.variant.toUpperCase()} ROUND IN FLIGHT.`;
   scene.inputMode = scene.dragSource === "gesture" ? "GESTURE" : "MOUSE";
+  emitSceneEvent(scene, "LAUNCH", {
+    variant: activeBird.variant,
+    inputMode: scene.inputMode,
+  });
   scene.dragging = false;
   scene.dragSource = null;
   scene.tension = 0;
@@ -501,7 +537,7 @@ function cleanupOffscreenBodies(scene) {
   }
 }
 
-export function createPhysicsScene(level) {
+export function createPhysicsScene(level, hooks = {}) {
   const Matter = getMatter();
   const engine = Matter.Engine.create({
     gravity: { x: 0, y: CONSTANTS.GRAVITY_Y },
@@ -514,6 +550,7 @@ export function createPhysicsScene(level) {
     engine,
     world: engine.world,
     level,
+    onEvent: hooks.onEvent ?? null,
     blocks: [],
     pigs: [],
     fragments: [],
