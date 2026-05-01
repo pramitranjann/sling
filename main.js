@@ -16,6 +16,7 @@ import { HandTracker } from "./gesture/vision.js";
 import { initWebcam } from "./gesture/webcamManager.js";
 import { drawScene, readPalette } from "./render/drawPhysics.js";
 import { CONSTANTS } from "./constants.js";
+import { createAudioSystem } from "./audio/audio.js";
 import {
   APP_STATES,
   ensureSaveExists,
@@ -38,6 +39,8 @@ let ui = null;
 let gameplayRefs = null;
 let physicsCtx = null;
 let vfxCtx = null;
+const audio = createAudioSystem();
+let audioMuted = false;
 
 let levels = [];
 let scene = null;
@@ -48,10 +51,55 @@ let tracker = null;
 let trackerStatus = "OFFLINE";
 let gestureReady = false;
 let gestureBootPromise = null;
-let pinchState = { active: false, event: "IDLE" };
+let pinchState = { active: false, event: "IDLE", pinchFrames: 0, releaseFrames: 0 };
+let audioUnlockStarted = false;
+
+const CALLOUTS = {
+  launch: [
+    "Release clean. Track the arc.",
+    "Ball away. Follow through.",
+    "Launch confirmed. Watch the collapse.",
+  ],
+  hit: [
+    "Direct hit. Structure weakening.",
+    "Impact confirmed. Load path compromised.",
+    "Solid contact. Keep pressure on it.",
+  ],
+  miss: [
+    "Missed. Reset and tighten the pull.",
+    "Close. Pull longer before release.",
+    "No break. Re-center and try again.",
+  ],
+  pigDown: [
+    "Target down. Good transfer.",
+    "Contact held. Target removed.",
+    "Section cleared. Stay on rhythm.",
+  ],
+  clear: [
+    "Site cleared.",
+    "Demolition complete.",
+    "Target zone neutralized.",
+  ],
+};
+
+function pickRandom(items) {
+  return items[Math.floor(Math.random() * items.length)] ?? "";
+}
 
 function setTrackerStatus(message) {
   trackerStatus = String(message ?? "OFFLINE").toUpperCase();
+}
+
+function ensureAudioUnlocked() {
+  if (audioUnlockStarted) return;
+  audioUnlockStarted = true;
+  void audio.unlock().finally(() => {
+    audioUnlockStarted = false;
+  });
+}
+
+function syncMuteUi() {
+  ui?.updateMuteButtons?.({ muted: audioMuted });
 }
 
 function countRemainingPigs(sceneRef) {
@@ -64,8 +112,10 @@ function countUnusedBirds(sceneRef) {
 
 function calculateStars(sceneRef) {
   const birdsRemaining = countUnusedBirds(sceneRef);
-  if (birdsRemaining >= 1) return 3;
-  if (sceneRef.birdQueue.every((bird) => bird.status !== "unused")) return 2;
+  const projectedScore = sceneRef.score + birdsRemaining * CONSTANTS.BIRDS_REMAINING_BONUS;
+
+  if (projectedScore >= sceneRef.level.par && birdsRemaining >= 1) return 3;
+  if (projectedScore >= sceneRef.level.par * 0.8) return 2;
   return 1;
 }
 
@@ -85,6 +135,47 @@ function makeGestureFrame() {
     pinchState,
     inZone: false,
   };
+}
+
+function handleSceneAudioAndCallouts(type, detail = {}) {
+  audio.handleSceneEvent(type, detail);
+
+  if (!ui) return;
+
+  switch (type) {
+    case "LAUNCH":
+      ui.setGameplayCallout({ text: pickRandom(CALLOUTS.launch) });
+      break;
+    case "PIG_DAMAGED":
+    case "BALL_IMPACT_HEAVY":
+      ui.setGameplayCallout({ text: pickRandom(CALLOUTS.hit) });
+      break;
+    case "PIG_DESTROYED":
+      ui.setGameplayCallout({ text: pickRandom(CALLOUTS.pigDown), tone: "celebration" });
+      break;
+    case "SHOT_MISSED":
+      ui.setGameplayCallout({ text: pickRandom(CALLOUTS.miss), tone: "danger" });
+      break;
+    case "LEVEL_CLEARED":
+      ui.setGameplayCallout({ text: pickRandom(CALLOUTS.clear), tone: "celebration" });
+      break;
+    case "HAND_LOST":
+      ui.setGameplayCenterOverlay({ text: "HAND LOST. BRING IT BACK.", tone: "danger", durationMs: 1100 });
+      if (detail.tryCount) {
+        window.setTimeout(() => {
+          ui?.setGameplayCenterOverlay({
+            text: `TRY ${Math.min(detail.tryCount, 3)}`,
+            durationMs: 900,
+          });
+        }, 1150);
+      }
+      break;
+    case "TRY_ADVANCE":
+      ui.setGameplayCenterOverlay({ text: `TRY ${Math.min(detail.tryCount ?? 1, 3)}`, durationMs: 900 });
+      break;
+    default:
+      break;
+  }
 }
 
 function getTrackerVideoSource() {
@@ -117,7 +208,7 @@ async function ensureGestureBoot() {
     } catch (error) {
       tracker = null;
       gestureReady = false;
-      pinchState = { active: false, event: "IDLE" };
+      pinchState = { active: false, event: "IDLE", pinchFrames: 0, releaseFrames: 0 };
       setTrackerStatus(error.message || "GESTURE UNAVAILABLE");
       console.error(error);
       return false;
@@ -134,6 +225,7 @@ function updateHomeScreen() {
 }
 
 function buildCalibrationTutorial(gestureFrame) {
+  const calibrationSlingOffsetY = 240;
   const handDetected = Boolean(gestureFrame.activeHand);
   const pullDistance = gestureFrame.handCenter
     ? Math.hypot(
@@ -182,20 +274,20 @@ function buildCalibrationTutorial(gestureFrame) {
     activeStep === 1
       ? "HOLD ONE HAND CLEARLY IN FRAME UNTIL TRACKING STABILISES."
       : activeStep === 2
-        ? "PINCH ANYWHERE TO LOCK THE SHOT TO THE SLING."
+        ? "MOVE INTO THE SLING ZONE, THEN PINCH TO LOCK."
         : activeStep === 3
-          ? "KEEP THE PINCH CLOSED, THEN PULL BACK FROM ANY POSITION TO LOAD THE SHOT."
+          ? "KEEP THE PINCH CLOSED, THEN PULL BACK TO BUILD TENSION."
           : state.calibration.releasePassed
             ? "TRAINING SHOT COMPLETE. YOU'RE READY TO ENTER THE SITE."
-            : "OPEN YOUR FINGERS CLEANLY FROM ANY POSITION TO RELEASE THE TRAINING SHOT.";
+            : "OPEN YOUR FINGERS CLEANLY TO RELEASE THE TRAINING SHOT.";
 
   const caption = !handDetected
     ? "WAITING FOR HAND INPUT."
     : !gestureFrame.pinchState.active
-      ? "PINCH ANYWHERE TO LOCK THE SHOT."
+      ? "MOVE TO THE SLING, THEN PINCH TO LOCK."
       : pullDistance < 42
         ? "PULL FARTHER BACK WHILE HOLDING THE PINCH."
-        : "OPEN YOUR FINGERS ANYWHERE TO RELEASE.";
+        : "OPEN YOUR FINGERS TO RELEASE.";
 
   return {
     handDone: state.calibration.handPassed,
@@ -206,12 +298,8 @@ function buildCalibrationTutorial(gestureFrame) {
     guideCopy,
     caption,
     handVisible: handDetected,
-    handXPct: gestureFrame.handCenter
-      ? (gestureFrame.handCenter.x / CONSTANTS.CANVAS_W) * 100
-      : (CONSTANTS.SLINGSHOT_ORIGIN.x / CONSTANTS.CANVAS_W) * 100,
-    handYPct: gestureFrame.handCenter
-      ? (gestureFrame.handCenter.y / CONSTANTS.CANVAS_H) * 100
-      : (CONSTANTS.SLINGSHOT_ORIGIN.y / CONSTANTS.CANVAS_H) * 100,
+    handX: CONSTANTS.SLINGSHOT_ORIGIN.x,
+    handY: CONSTANTS.SLINGSHOT_ORIGIN.y - calibrationSlingOffsetY,
     inZone: gestureFrame.inZone,
     progressPct: (completedSteps / 4) * 100,
     progressLabel: state.calibration.releasePassed
@@ -256,6 +344,18 @@ function updateGameplayHUD() {
     dot.classList.toggle("bird-dot--used", bird.status === "used");
     gameplayRefs.birdQueue.append(dot);
   });
+
+  const prompt =
+    scene.subState === "READY"
+      ? "PINCH AND PULL TO START THE SHOT."
+      : scene.subState === "DRAGGING"
+        ? scene.tension > 0.12
+          ? "SHOT ARMED. LET GO TO FIRE."
+          : "KEEP PINCHING AND PULL BACK FARTHER."
+        : scene.subState === "FLYING"
+          ? "TRACK THE IMPACT. NEXT SHOT LOADS AFTER SETTLE."
+          : scene.statusText;
+  ui.updateGameplayPrompt(prompt);
 }
 
 function updateGameplayCamera(gestureFrame) {
@@ -288,7 +388,9 @@ function mountLevel(levelId) {
 
   destroyScene();
   state.levelId = level.id;
-  scene = createPhysicsScene(level);
+  scene = createPhysicsScene(level, {
+    onEvent: handleSceneAudioAndCallouts,
+  });
   scene.gesture.trackerStatus = trackerStatus;
   lastFrameTime = 0;
   renderGameplay();
@@ -315,11 +417,13 @@ function transition(nextState, data = {}) {
   ui.setActiveScreen(nextState);
 
   if (nextState === APP_STATES.HOME) {
+    audio.stopAmbientHum();
     updateHomeScreen();
     return;
   }
 
   if (nextState === APP_STATES.CALIBRATION) {
+    audio.startAmbientHum();
     resetCalibrationProgress();
     ui.updateCalibration({
       trackerStatus,
@@ -332,11 +436,13 @@ function transition(nextState, data = {}) {
   }
 
   if (nextState === APP_STATES.LEVEL_SELECT) {
+    audio.stopAmbientHum();
     renderLevelSelect();
     return;
   }
 
   if (nextState === APP_STATES.GAMEPLAY) {
+    audio.startAmbientHum();
     const nextLevelId = data.levelId ?? state.levelId ?? getCurrentPlayableLevelId();
     mountLevel(nextLevelId);
     void ensureGestureBoot();
@@ -344,11 +450,15 @@ function transition(nextState, data = {}) {
   }
 
   if (nextState === APP_STATES.LEVEL_COMPLETE) {
+    audio.stopAmbientHum();
+    audio.handleSceneEvent("LEVEL_COMPLETE", { stars: data.stars });
     ui.updateLevelComplete(data);
     return;
   }
 
   if (nextState === APP_STATES.LEVEL_FAIL) {
+    audio.stopAmbientHum();
+    audio.handleSceneEvent("LEVEL_FAIL");
     ui.updateLevelFail(data);
   }
 }
@@ -381,44 +491,85 @@ function finalizeLevelFail(sceneRef) {
 }
 
 function handleStart() {
+  ensureAudioUnlocked();
+  audio.playUiConfirm();
   transition(APP_STATES.CALIBRATION);
 }
 
 function handleContinue() {
+  ensureAudioUnlocked();
+  audio.playUiBack();
   transition(APP_STATES.LEVEL_SELECT);
 }
 
 function handleEnterSite() {
+  ensureAudioUnlocked();
+  audio.playUiConfirm();
   ensureSaveExists();
   transition(APP_STATES.LEVEL_SELECT);
 }
 
 function handleSelectLevel(levelId) {
+  ensureAudioUnlocked();
+  audio.playUiConfirm();
   transition(APP_STATES.GAMEPLAY, { levelId });
 }
 
 function handleRetryCurrent() {
+  ensureAudioUnlocked();
+  audio.playUiConfirm();
   transition(APP_STATES.GAMEPLAY, { levelId: state.levelId });
 }
 
 function handleNextLevel() {
+  ensureAudioUnlocked();
+  audio.playUiConfirm();
   const nextLevel = getNextLevel(levels, state.levelId);
 
   if (!nextLevel) {
-    transition(APP_STATES.LEVEL_SELECT);
+    handleBackToSelect();
     return;
   }
 
   transition(APP_STATES.GAMEPLAY, { levelId: nextLevel.id });
 }
 
+function handleBackToSelect() {
+  ensureAudioUnlocked();
+  audio.playUiBack();
+  transition(APP_STATES.LEVEL_SELECT);
+}
+
 function handleBackHome() {
+  ensureAudioUnlocked();
+  audio.playUiBack();
   transition(APP_STATES.HOME);
+}
+
+function handleToggleMute() {
+  ensureAudioUnlocked();
+  audioMuted = audio.toggleMuted();
+  if (!audioMuted) {
+    if (state.current === APP_STATES.CALIBRATION || state.current === APP_STATES.GAMEPLAY) {
+      audio.startAmbientHum();
+    }
+  } else {
+    audio.stopAmbientHum();
+  }
+  syncMuteUi();
+}
+
+function bindAudioUnlock() {
+  const unlock = () => ensureAudioUnlocked();
+  window.addEventListener("pointerdown", unlock, { capture: true });
+  window.addEventListener("touchstart", unlock, { capture: true, passive: true });
+  window.addEventListener("keydown", unlock, { capture: true });
 }
 
 function bindPointerInput() {
   gameplayRefs.gameRoot.addEventListener("pointerdown", (event) => {
     if (state.current !== APP_STATES.GAMEPLAY || !scene) return;
+    ensureAudioUnlocked();
 
     const rect = gameplayRefs.gameRoot.getBoundingClientRect();
     const point = {
@@ -426,7 +577,7 @@ function bindPointerInput() {
       y: ((event.clientY - rect.top) / rect.height) * gameplayRefs.physicsCanvas.height,
     };
 
-    const handled = handlePointerEvent(scene, "down", point);
+    const handled = handlePointerEvent(scene, "down", point, event.pointerType);
     if (handled) {
       gameplayRefs.gameRoot.setPointerCapture(event.pointerId);
       renderGameplay();
@@ -442,7 +593,7 @@ function bindPointerInput() {
       y: ((event.clientY - rect.top) / rect.height) * gameplayRefs.physicsCanvas.height,
     };
 
-    handlePointerEvent(scene, "move", point);
+    handlePointerEvent(scene, "move", point, event.pointerType);
     renderGameplay();
   });
 
@@ -455,7 +606,7 @@ function bindPointerInput() {
       y: ((event.clientY - rect.top) / rect.height) * gameplayRefs.physicsCanvas.height,
     };
 
-    handlePointerEvent(scene, "up", point);
+    handlePointerEvent(scene, "up", point, event.pointerType);
     if (gameplayRefs.gameRoot.hasPointerCapture(event.pointerId)) {
       gameplayRefs.gameRoot.releasePointerCapture(event.pointerId);
     }
@@ -468,6 +619,7 @@ function bindPointerInput() {
 
 function bindKeyboardShortcuts() {
   window.addEventListener("keydown", (event) => {
+    ensureAudioUnlocked();
     if (state.current === APP_STATES.GAMEPLAY && event.key.toLowerCase() === "r") {
       mountLevel(state.levelId);
       return;
@@ -523,8 +675,8 @@ function buildGestureFrame(now) {
 
   if (!activeHand) {
     pinchState = pinchState.active
-      ? { active: false, event: "PINCH_RELEASE" }
-      : { active: false, event: "IDLE" };
+      ? { active: false, event: "HAND_LOST", pinchFrames: 0, releaseFrames: 0 }
+      : { active: false, event: "IDLE", pinchFrames: 0, releaseFrames: 0 };
     return { ...gestureFrame, pinchState };
   }
 
@@ -573,10 +725,18 @@ function frame(now) {
   animationFrame = requestAnimationFrame(frame);
 }
 
-async function boot() {
-  if (!window.Matter) {
-    throw new Error("Matter.js failed to load.");
+async function waitForMatter(timeoutMs = 4000) {
+  const start = performance.now();
+  while (!window.Matter) {
+    if (performance.now() - start > timeoutMs) {
+      throw new Error("Matter.js failed to load.");
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
   }
+}
+
+async function boot() {
+  await waitForMatter();
 
   const levelPayload = await loadLevelData(new URL("./data/levels.json", import.meta.url));
   levels = levelPayload.levels;
@@ -586,12 +746,16 @@ async function boot() {
     onStart: handleStart,
     onContinue: handleContinue,
     onBackHome: handleBackHome,
+    onToggleMute: handleToggleMute,
     onEnterSite: handleEnterSite,
     onSelectLevel: handleSelectLevel,
     onRetryCurrent: handleRetryCurrent,
     onNextLevel: handleNextLevel,
-    onBackToSelect: () => transition(APP_STATES.LEVEL_SELECT),
+    onBackToSelect: handleBackToSelect,
+    onGameplayHome: handleBackHome,
+    onGameplayRestart: handleRetryCurrent,
   });
+  syncMuteUi();
 
   gameplayRefs = ui.refs.gameplayRefs;
   physicsCtx = gameplayRefs.physicsCanvas.getContext("2d");
@@ -599,6 +763,7 @@ async function boot() {
 
   bindPointerInput();
   bindKeyboardShortcuts();
+  bindAudioUnlock();
 
   ui.updateLevelComplete({
     ...state.preview.complete,

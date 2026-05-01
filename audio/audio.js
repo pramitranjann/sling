@@ -7,13 +7,22 @@ function exponentialRamp(param, value, time) {
 }
 
 export function createAudioSystem() {
+  const audioEnabled = true;
   let ctx = null;
   let master = null;
   let compressor = null;
   let noiseBuffer = null;
   let ambientNodes = null;
   let chargeFuseNodes = null;
-  let disabled = false;
+  let disabled = !audioEnabled;
+  let muted = false;
+  const ambientEnabled = true;
+
+  function updateMasterGain() {
+    if (!master || !ctx) return;
+    master.gain.cancelScheduledValues(now(ctx));
+    master.gain.setValueAtTime(muted ? 0 : 0.9, now(ctx));
+  }
 
   function failSoft(error) {
     disabled = true;
@@ -41,6 +50,7 @@ export function createAudioSystem() {
     compressor.release.value = 0.18;
     master.connect(compressor);
     compressor.connect(ctx.destination);
+    updateMasterGain();
     return ctx;
   }
 
@@ -60,6 +70,7 @@ export function createAudioSystem() {
 
   async function unlock() {
     if (disabled) return false;
+    if (muted) return true;
 
     const audioCtx = ensureContext();
     if (audioCtx.state === "suspended") {
@@ -147,23 +158,25 @@ export function createAudioSystem() {
   }
 
   function startAmbientHum() {
+    if (!ambientEnabled) return;
+    if (muted) return;
     if (ambientNodes) return;
     const audioCtx = ensureContext();
 
     const oscA = audioCtx.createOscillator();
     const oscB = audioCtx.createOscillator();
-    oscA.type = "sawtooth";
-    oscB.type = "sawtooth";
-    oscA.frequency.value = 42;
-    oscB.frequency.value = 47;
+    oscA.type = "triangle";
+    oscB.type = "sine";
+    oscA.frequency.value = 46;
+    oscB.frequency.value = 61;
 
     const filter = audioCtx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.value = 200;
+    filter.frequency.value = 140;
 
     const gain = connectOutput(filter, 0.0001);
     gain.gain.setValueAtTime(0.0001, now(audioCtx));
-    exponentialRamp(gain.gain, 0.06, now(audioCtx) + 0.3);
+    exponentialRamp(gain.gain, 0.018, now(audioCtx) + 0.3);
 
     oscA.connect(filter);
     oscB.connect(filter);
@@ -173,16 +186,24 @@ export function createAudioSystem() {
     ambientNodes = { oscA, oscB, gain };
   }
 
-  function stopAmbientHum() {
+  function stopAmbientHum(immediate = false) {
     if (!ambientNodes || !ctx) return;
     const { oscA, oscB, gain } = ambientNodes;
-    exponentialRamp(gain.gain, 0.0001, now(ctx) + 0.5);
-    oscA.stop(now(ctx) + 0.55);
-    oscB.stop(now(ctx) + 0.55);
+    gain.gain.cancelScheduledValues(now(ctx));
+    if (immediate) {
+      gain.gain.setValueAtTime(0, now(ctx));
+      oscA.stop(now(ctx) + 0.01);
+      oscB.stop(now(ctx) + 0.01);
+    } else {
+      exponentialRamp(gain.gain, 0.0001, now(ctx) + 0.5);
+      oscA.stop(now(ctx) + 0.55);
+      oscB.stop(now(ctx) + 0.55);
+    }
     ambientNodes = null;
   }
 
   function startChargeFuse() {
+    if (muted) return;
     if (chargeFuseNodes) return;
     const audioCtx = ensureContext();
     const src = audioCtx.createBufferSource();
@@ -204,39 +225,52 @@ export function createAudioSystem() {
     chargeFuseNodes = { src, gain };
   }
 
-  function stopChargeFuse() {
+  function stopChargeFuse(immediate = false) {
     if (!chargeFuseNodes || !ctx) return;
-    exponentialRamp(chargeFuseNodes.gain.gain, 0.0001, now(ctx) + 0.08);
-    chargeFuseNodes.src.stop(now(ctx) + 0.12);
+    chargeFuseNodes.gain.gain.cancelScheduledValues(now(ctx));
+    if (immediate) {
+      chargeFuseNodes.gain.gain.setValueAtTime(0, now(ctx));
+      chargeFuseNodes.src.stop(now(ctx) + 0.01);
+    } else {
+      exponentialRamp(chargeFuseNodes.gain.gain, 0.0001, now(ctx) + 0.08);
+      chargeFuseNodes.src.stop(now(ctx) + 0.12);
+    }
     chargeFuseNodes = null;
   }
 
   function playUiConfirm() {
+    if (muted) return;
     oneshotOsc({ type: "square", startFreq: 220, endFreq: 280, duration: 0.1, gain: 0.09, release: 0.1 });
   }
 
   function playUiBack() {
+    if (muted) return;
     oneshotOsc({ type: "square", startFreq: 180, endFreq: 140, duration: 0.08, gain: 0.07, release: 0.08 });
   }
 
   function playSlingCreak() {
+    if (muted) return;
     oneshotOsc({ type: "sawtooth", startFreq: 280, endFreq: 180, duration: 0.18, gain: 0.11, release: 0.18, filterType: "lowpass", filterFreq: 1200 });
   }
 
   function playLaunchWhoosh() {
+    if (muted) return;
     oneshotNoise({ duration: 0.15, gain: 0.12, filterType: "bandpass", startFreq: 400, endFreq: 2400, q: 2.8, release: 0.15 });
   }
 
   function playBallImpactHeavy() {
+    if (muted) return;
     oneshotOsc({ type: "sine", startFreq: 95, endFreq: 38, duration: 0.14, gain: 0.24, release: 0.14 });
     oneshotNoise({ duration: 0.08, gain: 0.06, filterType: "lowpass", startFreq: 240, endFreq: 140, q: 0.8, release: 0.08, playbackRate: 0.7 });
   }
 
   function playBallImpactLight() {
+    if (muted) return;
     oneshotOsc({ type: "sine", startFreq: 90, endFreq: 40, duration: 0.08, gain: 0.12, release: 0.08 });
   }
 
   function playBlockCrack() {
+    if (muted) return;
     oneshotNoise({
       duration: 0.04,
       gain: 0.18,
@@ -250,44 +284,53 @@ export function createAudioSystem() {
   }
 
   function playBlockCollapse() {
+    if (muted) return;
     oneshotNoise({ duration: 0.55, gain: 0.2, filterType: "lowpass", startFreq: 900, endFreq: 420, q: 0.6, release: 0.55, playbackRate: 0.65 });
     oneshotOsc({ type: "sine", startFreq: 72, endFreq: 30, duration: 0.22, gain: 0.12, release: 0.22 });
   }
 
   function playPigHit() {
+    if (muted) return;
     oneshotOsc({ type: "square", startFreq: 60, endFreq: 60, duration: 0.18, gain: 0.11, release: 0.18 });
     oneshotOsc({ type: "square", startFreq: 142, endFreq: 118, duration: 0.12, gain: 0.07, release: 0.12 });
   }
 
   function playPigDeath() {
+    if (muted) return;
     oneshotOsc({ type: "sine", startFreq: 55, endFreq: 28, duration: 0.24, gain: 0.2, release: 0.24 });
     oneshotNoise({ duration: 0.18, gain: 0.08, filterType: "lowpass", startFreq: 480, endFreq: 200, q: 0.6, release: 0.18, playbackRate: 0.8 });
   }
 
   function playDustSettle() {
+    if (muted) return;
     oneshotNoise({ duration: 1.2, gain: 0.08, filterType: "lowpass", startFreq: 600, endFreq: 240, q: 0.3, release: 1.2, playbackRate: 0.75 });
   }
 
   function playChargeBlast() {
+    if (muted) return;
     oneshotNoise({ duration: 0.4, gain: 0.22, filterType: "lowpass", startFreq: 160, endFreq: 70, q: 0.5, release: 0.4, playbackRate: 0.55 });
     oneshotOsc({ type: "sawtooth", startFreq: 62, endFreq: 24, duration: 0.38, gain: 0.26, release: 0.38 });
   }
 
   function playStar(index) {
+    if (muted) return;
     const freqs = [180, 260, 360];
     oneshotOsc({ type: "triangle", startFreq: freqs[index] ?? 180, endFreq: (freqs[index] ?? 180) * 1.05, duration: 0.5, gain: 0.14, release: 0.5 });
   }
 
   function playLevelComplete() {
+    if (muted) return;
     oneshotOsc({ type: "sawtooth", startFreq: 130, endFreq: 130, duration: 0.5, gain: 0.16, release: 0.5 });
     oneshotOsc({ type: "sawtooth", startFreq: 196, endFreq: 196, duration: 0.5, gain: 0.12, release: 0.5 });
   }
 
   function playLevelFail() {
+    if (muted) return;
     oneshotOsc({ type: "sawtooth", startFreq: 140, endFreq: 55, duration: 0.8, gain: 0.18, release: 0.8 });
   }
 
   function playScoreTick() {
+    if (muted) return;
     oneshotOsc({ type: "square", startFreq: 320, endFreq: 320, duration: 0.04, gain: 0.04, release: 0.04 });
   }
 
@@ -401,6 +444,39 @@ export function createAudioSystem() {
       } catch (error) {
         failSoft(error);
       }
+    },
+    setMuted(nextMuted) {
+      muted = Boolean(nextMuted);
+      if (disabled) return muted;
+      try {
+        if (ctx && master) {
+          updateMasterGain();
+        }
+        if (ctx) {
+          if (muted) {
+            stopAmbientHum(true);
+            stopChargeFuse(true);
+            void ctx.suspend().catch((error) => {
+              failSoft(error);
+            });
+          } else if (ctx.state === "suspended") {
+            void ctx.resume().then(() => {
+              updateMasterGain();
+            }).catch((error) => {
+              failSoft(error);
+            });
+          }
+        }
+      } catch (error) {
+        failSoft(error);
+      }
+      return muted;
+    },
+    toggleMuted() {
+      return this.setMuted(!muted);
+    },
+    isMuted() {
+      return muted;
     },
   };
 }

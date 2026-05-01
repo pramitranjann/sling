@@ -77,6 +77,46 @@ function applyTutorialStep(stepNode, statusNode, isDone, isActive) {
   statusNode.textContent = isDone ? "READY" : isActive ? "NOW" : "UP NEXT";
 }
 
+function clearTimers(timers) {
+  while (timers.length) {
+    window.clearTimeout(timers.pop());
+  }
+}
+
+function renderStarMarkup(count) {
+  return Array.from(
+    { length: 3 },
+    (_, index) => `
+      <span
+        class="result-star ${index < count ? "result-star--earned" : ""}"
+        data-star-index="${index}"
+        aria-hidden="true"
+      >
+        ★
+      </span>
+    `,
+  ).join("");
+}
+
+function animateCount(node, value, durationMs, onTick) {
+  if (!node) return;
+  const start = performance.now();
+  const finish = Math.max(value, 0);
+
+  const tick = (now) => {
+    const progress = Math.min((now - start) / durationMs, 1);
+    const eased = 1 - (1 - progress) * (1 - progress);
+    node.textContent = Math.round(finish * eased).toLocaleString();
+    onTick?.(progress);
+    if (progress < 1) {
+      window.requestAnimationFrame(tick);
+    }
+  };
+
+  node.textContent = "0";
+  window.requestAnimationFrame(tick);
+}
+
 function markup() {
   return {
     home: `
@@ -88,13 +128,13 @@ function markup() {
             <h1 class="hero-title">SLING.</h1>
             <p class="hero-copy">
               A webcam-controlled demolition ritual built in black hazard bars, draft paper grid,
-              and high-vis signal yellow. Pull back, release, and watch the site fold.
+              and high-vis signal yellow. Pull back, release, and break the balance between structure and impact.
             </p>
           </div>
           <div class="home-actions">
-            <button id="homeStartBtn" class="btn-primary" type="button">START</button>
-            <button id="homeContinueBtn" class="btn-secondary" type="button">CONTINUE</button>
-            <div class="home-note">WEBCAM REQUIRED</div>
+            <button id="homeStartBtn" class="btn-primary" type="button">START SESSION</button>
+            <button id="homeContinueBtn" class="btn-secondary" type="button">CONTINUE RUN</button>
+            <div class="home-note">CAMERA WAKES ON FIRST TAP. TRACK THE HAND, LOCK THE SLING, RELEASE CLEAN.</div>
           </div>
         </section>
         <div class="stripe"></div>
@@ -107,7 +147,7 @@ function markup() {
           <header class="screen-bar">
             <button id="calibrationBackBtn" class="nav-link" type="button">← BACK</button>
             <span class="screen-bar__title">CALIBRATION</span>
-            <span class="screen-bar__spacer"></span>
+            <button id="calibrationMuteBtn" class="nav-link nav-link--button" type="button">MUTE</button>
           </header>
           <div class="screen-content calibration-shell">
             <div class="calibration-demo game-root">
@@ -118,6 +158,9 @@ function markup() {
                 <span class="calibration-demo__post calibration-demo__post--right"></span>
                 <span class="calibration-demo__fork calibration-demo__fork--left"></span>
                 <span class="calibration-demo__fork calibration-demo__fork--right"></span>
+                <span class="calibration-demo__band calibration-demo__band--left"></span>
+                <span class="calibration-demo__band calibration-demo__band--right"></span>
+                <span class="calibration-demo__ball"></span>
               </div>
 
               <div class="calibration-demo__zone"></div>
@@ -191,10 +234,10 @@ function markup() {
                   </div>
                 </div>
                 <div class="tracker-copy calibration-demo__guide-hint">
-                  PINCH ANYWHERE TO SNAP THE SHOT TO THE SLING.
+                  MOVE INTO RANGE, PINCH TO LOCK, THEN OPEN YOUR HAND TO RELEASE.
                 </div>
                 <button id="enterSiteBtn" class="btn-primary calibration-demo__enter" type="button" disabled>
-                  ENTER SITE
+                  ENTER THE RANGE
                 </button>
               </div>
 
@@ -232,9 +275,9 @@ function markup() {
           <div class="screen-content level-select-layout">
             <div class="level-select-copy">
               <span class="guide-card__eyebrow">UNLOCK PATH</span>
-              <h2 class="guide-card__title">CLEAR EACH LIVE SITE TO OPEN THE NEXT DEMOLITION TEST.</h2>
+              <h2 class="guide-card__title">CLEAR EACH DEMOLITION SITE TO OPEN THE NEXT STRUCTURAL TEST.</h2>
               <p class="guide-card__copy">
-                Each cleared site opens the next demolition test. Locked cards pulse on standby until the previous site is complete.
+                Pick the active site, clear it cleanly, and unlock the next structural challenge.
               </p>
             </div>
             <div id="levelCardGrid" class="level-card-grid"></div>
@@ -263,6 +306,10 @@ function markup() {
               </div>
             </div>
 
+            <div class="gameplay-callout" id="gameplayCallout" aria-live="polite"></div>
+            <div class="gameplay-center-overlay" id="gameplayCenterOverlay" aria-live="polite"></div>
+            <div class="gameplay-prompt" id="gameplayPrompt">MOVE INTO THE SLING ZONE AND PINCH TO LOCK.</div>
+
             <div class="hud-top">
               <div class="hud-group">
                 <div class="level-badge">
@@ -289,6 +336,12 @@ function markup() {
               <div class="hud-score">
                 <span class="hud-score__label">SCORE</span>
                 <span class="hud-score__value" id="hudScore">0</span>
+              </div>
+
+              <div class="hud-actions">
+                <button id="gameplayMuteBtn" class="btn-secondary hud-btn hud-btn--mute" type="button">MUTE</button>
+                <button id="gameplayHomeBtn" class="btn-secondary hud-btn hud-btn--home" type="button">HOME</button>
+                <button id="gameplayRestartBtn" class="btn-primary hud-btn hud-btn--restart" type="button">RESTART</button>
               </div>
             </div>
 
@@ -321,14 +374,19 @@ function markup() {
         <section class="screen-panel">
           <header class="screen-bar screen-bar--stacked">
             <span class="screen-bar__eyebrow" id="completeLevelLabel">LEVEL 03</span>
-            <span class="screen-bar__hero screen-bar__hero--yellow">COMPLETE</span>
+            <span class="screen-bar__hero screen-bar__hero--yellow" id="completeHeadline">SITE CLEARED</span>
           </header>
           <div class="screen-content result-layout">
-            <div class="result-stars" id="completeStars">★ ★ ☆</div>
+            <div class="result-burst" aria-hidden="true">
+              <div class="result-burst__flash" id="completeFlash"></div>
+              <div class="result-burst__confetti" id="completeConfetti"></div>
+            </div>
+            <p class="result-copy" id="completeTagline">THE STRUCTURE LOST THE ARGUMENT.</p>
+            <div class="result-stars" id="completeStars"></div>
             <div class="result-metrics">
               <div class="result-card">
                 <span class="result-card__label">SCORE</span>
-                <span class="result-card__value" id="completeScore">4,450</span>
+                <span class="result-card__value" id="completeScore">0</span>
               </div>
               <div class="result-card">
                 <span class="result-card__label">PAR</span>
@@ -336,11 +394,11 @@ function markup() {
               </div>
               <div class="result-card result-card--signal">
                 <span class="result-card__label">BONUS</span>
-                <span class="result-card__value" id="completeBonus">+400 BRD</span>
+                <span class="result-card__value" id="completeBonus">+400 RESERVE</span>
               </div>
             </div>
             <div class="result-actions">
-              <button id="completeRetryBtn" class="btn-secondary" type="button">RETRY</button>
+              <button id="completeRetryBtn" class="btn-secondary" type="button">RUN IT AGAIN</button>
               <button id="completeNextBtn" class="btn-primary" type="button">NEXT SITE →</button>
             </div>
           </div>
@@ -354,9 +412,10 @@ function markup() {
         <section class="screen-panel">
           <header class="screen-bar screen-bar--stacked">
             <span class="screen-bar__eyebrow" id="failLevelLabel">LEVEL 03</span>
-            <span class="screen-bar__hero screen-bar__hero--fail">FAILED</span>
+            <span class="screen-bar__hero screen-bar__hero--fail">TEST FAILED</span>
           </header>
           <div class="screen-content fail-layout">
+            <p class="result-copy">THE STRUCTURE IS STILL HOLDING. RESET, REAIM, TRY AGAIN.</p>
             <div class="fail-row">
               <span>TARGETS REMAINING</span>
               <span id="failPigsRemaining">1</span>
@@ -366,7 +425,7 @@ function markup() {
               <span id="failScore">1,200</span>
             </div>
             <div class="result-actions result-actions--stacked">
-              <button id="failRetryBtn" class="btn-primary" type="button">RETRY</button>
+              <button id="failRetryBtn" class="btn-primary" type="button">TRY AGAIN</button>
               <button id="failLevelSelectBtn" class="btn-secondary" type="button">LEVEL SELECT</button>
             </div>
           </div>
@@ -394,6 +453,9 @@ export function initScreens(callbacks) {
   roots.GAMEPLAY.innerHTML = templates.gameplay;
   roots.LEVEL_COMPLETE.innerHTML = templates.complete;
   roots.LEVEL_FAIL.innerHTML = templates.fail;
+  const resultTimers = [];
+  let gameplayCalloutTimer = 0;
+  let gameplayCenterOverlayTimer = 0;
 
   const refs = {
     homeContinueBtn: document.getElementById("homeContinueBtn"),
@@ -417,14 +479,19 @@ export function initScreens(callbacks) {
     calibrationStepReleaseState: document.getElementById("calibrationStepReleaseState"),
     calibrationTrainingHand: document.getElementById("calibrationTrainingHand"),
     calibrationTrainingCaption: document.getElementById("calibrationTrainingCaption"),
+    calibrationMuteBtn: document.getElementById("calibrationMuteBtn"),
     enterSiteBtn: document.getElementById("enterSiteBtn"),
     levelCardGrid: document.getElementById("levelCardGrid"),
     completeLevelLabel: document.getElementById("completeLevelLabel"),
+    completeHeadline: document.getElementById("completeHeadline"),
+    completeTagline: document.getElementById("completeTagline"),
     completeStars: document.getElementById("completeStars"),
     completeScore: document.getElementById("completeScore"),
     completePar: document.getElementById("completePar"),
     completeBonus: document.getElementById("completeBonus"),
     completeNextBtn: document.getElementById("completeNextBtn"),
+    completeFlash: document.getElementById("completeFlash"),
+    completeConfetti: document.getElementById("completeConfetti"),
     failLevelLabel: document.getElementById("failLevelLabel"),
     failPigsRemaining: document.getElementById("failPigsRemaining"),
     failScore: document.getElementById("failScore"),
@@ -437,6 +504,9 @@ export function initScreens(callbacks) {
       gameRoot: document.getElementById("game-root"),
       physicsCanvas: document.getElementById("canvas-physics"),
       vfxCanvas: document.getElementById("canvas-vfx"),
+      gameplayCallout: document.getElementById("gameplayCallout"),
+      gameplayCenterOverlay: document.getElementById("gameplayCenterOverlay"),
+      gameplayPrompt: document.getElementById("gameplayPrompt"),
       levelNumber: document.getElementById("levelNumber"),
       levelName: document.getElementById("levelName"),
       parScore: document.getElementById("parScore"),
@@ -445,18 +515,25 @@ export function initScreens(callbacks) {
       birdQueue: document.getElementById("birdQueue"),
       tensionPct: document.getElementById("tensionPct"),
       tensionFill: document.getElementById("tensionFill"),
+      gameplayMuteBtn: document.getElementById("gameplayMuteBtn"),
+      gameplayHomeBtn: document.getElementById("gameplayHomeBtn"),
+      gameplayRestartBtn: document.getElementById("gameplayRestartBtn"),
     },
   };
 
   document.getElementById("homeStartBtn").addEventListener("click", callbacks.onStart);
   refs.homeContinueBtn.addEventListener("click", callbacks.onContinue);
   document.getElementById("calibrationBackBtn").addEventListener("click", callbacks.onBackHome);
+  refs.calibrationMuteBtn.addEventListener("click", callbacks.onToggleMute);
   refs.enterSiteBtn.addEventListener("click", callbacks.onEnterSite);
   document.getElementById("levelSelectBackBtn").addEventListener("click", callbacks.onBackHome);
   document.getElementById("completeRetryBtn").addEventListener("click", callbacks.onRetryCurrent);
   document.getElementById("completeNextBtn").addEventListener("click", callbacks.onNextLevel);
   document.getElementById("failRetryBtn").addEventListener("click", callbacks.onRetryCurrent);
   document.getElementById("failLevelSelectBtn").addEventListener("click", callbacks.onBackToSelect);
+  refs.gameplayRefs.gameplayMuteBtn.addEventListener("click", callbacks.onToggleMute);
+  refs.gameplayRefs.gameplayHomeBtn.addEventListener("click", callbacks.onGameplayHome);
+  refs.gameplayRefs.gameplayRestartBtn.addEventListener("click", callbacks.onGameplayRestart);
 
   return {
     roots,
@@ -468,6 +545,13 @@ export function initScreens(callbacks) {
     },
     updateHome({ continueEnabled }) {
       refs.homeContinueBtn.disabled = !continueEnabled;
+    },
+    updateMuteButtons({ muted }) {
+      const label = muted ? "UNMUTE" : "MUTE";
+      refs.calibrationMuteBtn.textContent = label;
+      refs.gameplayRefs.gameplayMuteBtn.textContent = label;
+      refs.calibrationMuteBtn.classList.toggle("nav-link--active", muted);
+      refs.gameplayRefs.gameplayMuteBtn.classList.toggle("hud-btn--muted", muted);
     },
     updateCalibration({ trackerStatus, handDetected, pinchActive, tutorial }) {
       refs.calibrationFeedLabel.textContent = handDetected ? "HAND DETECTED" : "WAITING FOR HAND";
@@ -514,8 +598,8 @@ export function initScreens(callbacks) {
       refs.calibrationTrainingHand.classList.toggle("calibration-demo__hand--visible", tutorial.handVisible);
       refs.calibrationTrainingHand.classList.toggle("calibration-demo__hand--pinched", pinchActive);
       refs.calibrationTrainingHand.classList.toggle("calibration-demo__hand--in-zone", tutorial.inZone);
-      refs.calibrationTrainingHand.style.left = `${tutorial.handXPct}%`;
-      refs.calibrationTrainingHand.style.top = `${tutorial.handYPct}%`;
+      refs.calibrationTrainingHand.style.left = `${tutorial.handX}px`;
+      refs.calibrationTrainingHand.style.top = `${tutorial.handY}px`;
       refs.calibrationTrainingCaption.textContent = tutorial.caption;
       refs.enterSiteBtn.disabled = !tutorial.ready;
     },
@@ -532,12 +616,46 @@ export function initScreens(callbacks) {
       });
     },
     updateLevelComplete({ levelId, score, par, stars, birdsRemaining, hasNextLevel }) {
+      clearTimers(resultTimers);
       refs.completeLevelLabel.textContent = `LEVEL ${String(levelId).padStart(2, "0")}`;
-      refs.completeStars.textContent = Array.from({ length: 3 }, (_, index) => (index < stars ? "★" : "☆")).join(" ");
-      refs.completeScore.textContent = score.toLocaleString();
+      refs.completeHeadline.textContent =
+        stars >= 3 ? "SITE CLEARED" : stars === 2 ? "STRUCTURE DOWN" : "TARGET COMPLETE";
+      refs.completeTagline.textContent =
+        stars >= 3
+          ? "CLEAN RELEASE. CLEAN COLLAPSE. CLEAN FINISH."
+          : stars === 2
+            ? "THE TARGET FELL. THE TIMING CAN STILL GET SHARPER."
+            : "THE OBJECTIVE IS DOWN. EFFICIENCY COMES NEXT.";
+      refs.completeStars.innerHTML = renderStarMarkup(stars);
+      refs.completeScore.textContent = "0";
       refs.completePar.textContent = par.toLocaleString();
-      refs.completeBonus.textContent = `+${birdsRemaining * 400} BRD`;
-      refs.completeNextBtn.textContent = hasNextLevel ? "NEXT SITE →" : "LEVEL SELECT";
+      refs.completeBonus.textContent = `+${birdsRemaining * 400} RESERVE`;
+      refs.completeNextBtn.textContent = hasNextLevel ? "NEXT SITE →" : "BACK TO LEVELS";
+
+      refs.completeFlash.classList.remove("is-live");
+      void refs.completeFlash.offsetWidth;
+      refs.completeFlash.classList.add("is-live");
+
+      refs.completeConfetti.innerHTML = Array.from({ length: 18 }, (_, index) => {
+        const left = 8 + (index % 6) * 16 + Math.random() * 8;
+        const delay = (index % 3) * 90;
+        const drift = (Math.random() * 48 - 24).toFixed(1);
+        return `
+          <span
+            class="confetti-bit"
+            style="left:${left}%;animation-delay:${delay}ms;--confetti-drift:${drift}px"
+          ></span>
+        `;
+      }).join("");
+
+      refs.completeStars.querySelectorAll(".result-star").forEach((star, index) => {
+        const timer = window.setTimeout(() => {
+          star.classList.add("is-visible");
+        }, CONSTANTS.STAR_REVEAL_INTERVAL_MS * index);
+        resultTimers.push(timer);
+      });
+
+      animateCount(refs.completeScore, score, CONSTANTS.SCORE_COUNTUP_MS);
     },
     updateLevelFail({ levelId, score, pigsRemaining }) {
       refs.failLevelLabel.textContent = `LEVEL ${String(levelId).padStart(2, "0")}`;
@@ -555,6 +673,57 @@ export function initScreens(callbacks) {
     clearWebcamOverlays() {
       clearOverlay(refs.calibrationOverlay);
       clearOverlay(refs.gameplayOverlay);
+    },
+    setGameplayCallout({ text = "", tone = "default" }) {
+      window.clearTimeout(gameplayCalloutTimer);
+      const node = refs.gameplayRefs.gameplayCallout;
+      if (!node) return;
+
+      if (!text) {
+        node.classList.remove("is-visible", "gameplay-callout--celebration", "gameplay-callout--danger");
+        node.textContent = "";
+        return;
+      }
+
+      node.classList.remove("is-visible", "gameplay-callout--celebration", "gameplay-callout--danger");
+      node.textContent = text;
+      if (tone === "celebration") {
+        node.classList.add("gameplay-callout--celebration");
+      } else if (tone === "danger") {
+        node.classList.add("gameplay-callout--danger");
+      }
+      void node.offsetWidth;
+      node.classList.add("is-visible");
+      gameplayCalloutTimer = window.setTimeout(() => {
+        node.classList.remove("is-visible", "gameplay-callout--celebration", "gameplay-callout--danger");
+      }, 1800);
+    },
+    setGameplayCenterOverlay({ text = "", tone = "default", durationMs = 900 }) {
+      window.clearTimeout(gameplayCenterOverlayTimer);
+      const node = refs.gameplayRefs.gameplayCenterOverlay;
+      if (!node) return;
+
+      if (!text) {
+        node.classList.remove("is-visible", "gameplay-center-overlay--danger");
+        node.textContent = "";
+        return;
+      }
+
+      node.classList.remove("is-visible", "gameplay-center-overlay--danger");
+      node.textContent = text;
+      if (tone === "danger") {
+        node.classList.add("gameplay-center-overlay--danger");
+      }
+      void node.offsetWidth;
+      node.classList.add("is-visible");
+      gameplayCenterOverlayTimer = window.setTimeout(() => {
+        node.classList.remove("is-visible", "gameplay-center-overlay--danger");
+      }, durationMs);
+    },
+    updateGameplayPrompt(text) {
+      if (refs.gameplayRefs.gameplayPrompt) {
+        refs.gameplayRefs.gameplayPrompt.textContent = text;
+      }
     },
     attachSharedStream(stream) {
       [refs.calibrationVideo, refs.gameplayVideo].forEach((video) => {

@@ -9,7 +9,7 @@
 
     {
       "id": 1,
-      "name": "SITE A",
+      "name": "QUARRY A",
       "par": 2400,
       "birds": ["standard", "standard", "standard"],
       "structures": [
@@ -35,7 +35,7 @@
 
     {
       "id": 2,
-      "name": "SITE B",
+      "name": "SHEAR WALL",
       "par": 3200,
       "birds": ["standard", "standard", "heavy"],
       "structures": [
@@ -62,7 +62,7 @@
 
     {
       "id": 3,
-      "name": "SITE C",
+      "name": "SPLIT LOAD",
       "par": 4200,
       "birds": ["standard", "heavy", "charge"],
       "structures": [
@@ -99,7 +99,7 @@
 
     {
       "id": 4,
-      "name": "SITE D",
+      "name": "FAULT LINE",
       "par": 5200,
       "birds": ["heavy", "charge", "standard"],
       "structures": [
@@ -129,7 +129,7 @@
 
     {
       "id": 5,
-      "name": "SITE E",
+      "name": "LAST SPAN",
       "par": 6800,
       "birds": ["charge", "heavy", "standard"],
       "structures": [

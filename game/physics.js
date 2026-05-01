@@ -28,24 +28,13 @@ function createBounds(Matter) {
       40,
       { isStatic: true, label: "ground" },
     ),
-    Matter.Bodies.rectangle(-20, CONSTANTS.CANVAS_H / 2, 40, CONSTANTS.CANVAS_H, {
-      isStatic: true,
-      label: "wall",
-    }),
-    Matter.Bodies.rectangle(
-      CONSTANTS.CANVAS_W + 20,
-      CONSTANTS.CANVAS_H / 2,
-      40,
-      CONSTANTS.CANVAS_H,
-      { isStatic: true, label: "wall" },
-    ),
   ];
 }
 
 function createBlock(scene, x, y, type) {
   const Matter = scene.Matter;
   const { w, h } = CONSTANTS.BLOCK_SIZES[type] ?? CONSTANTS.BLOCK_SIZES["1x1"];
-  const body = Matter.Bodies.rectangle(x, y, w, h, {
+  const body = Matter.Bodies.rectangle(x, y + CONSTANTS.LEVEL_Y_OFFSET, w, h, {
     label: "block",
     restitution: CONSTANTS.BLOCK_PHYSICS.restitution,
     friction: CONSTANTS.BLOCK_PHYSICS.friction,
@@ -65,7 +54,7 @@ function createBlock(scene, x, y, type) {
 function createPig(scene, x, y, variant) {
   const Matter = scene.Matter;
   const { w, h } = CONSTANTS.PIG_SIZES[variant] ?? CONSTANTS.PIG_SIZES.standard;
-  const body = Matter.Bodies.rectangle(x, y, w, h, {
+  const body = Matter.Bodies.rectangle(x, y + CONSTANTS.LEVEL_Y_OFFSET, w, h, {
     label: "pig",
     restitution: CONSTANTS.PIG_PHYSICS.restitution,
     friction: CONSTANTS.PIG_PHYSICS.friction,
@@ -79,6 +68,48 @@ function createPig(scene, x, y, variant) {
   body.dead = false;
 
   return body;
+}
+
+function getBodySize(body) {
+  if (body.label === "block") {
+    return CONSTANTS.BLOCK_SIZES[body.blockType] ?? CONSTANTS.BLOCK_SIZES["1x1"];
+  }
+
+  if (body.label === "pig") {
+    return CONSTANTS.PIG_SIZES[body.pigVariant] ?? CONSTANTS.PIG_SIZES.standard;
+  }
+
+  const bounds = body.bounds;
+  return {
+    w: bounds.max.x - bounds.min.x,
+    h: bounds.max.y - bounds.min.y,
+  };
+}
+
+function placePigOnSupport(scene, pig) {
+  const pigSize = getBodySize(pig);
+  const supportTop = scene.blocks.reduce((bestTop, block) => {
+    const blockSize = getBodySize(block);
+    const horizontalGap = Math.abs(block.position.x - pig.position.x);
+    const supportedWidth = (blockSize.w + pigSize.w) * 0.5 - 4;
+    if (horizontalGap > supportedWidth) {
+      return bestTop;
+    }
+
+    const blockTop = block.position.y - blockSize.h * 0.5;
+    if (blockTop >= pig.position.y) {
+      return bestTop;
+    }
+
+    return Math.min(bestTop, blockTop);
+  }, CONSTANTS.GROUND_VISIBLE_Y);
+
+  scene.Matter.Body.setPosition(pig, {
+    x: pig.position.x,
+    y: supportTop - pigSize.h * 0.5 - CONSTANTS.PIG_SPAWN_CLEARANCE,
+  });
+  scene.Matter.Body.setVelocity(pig, { x: 0, y: 0 });
+  scene.Matter.Body.setAngularVelocity(pig, 0);
 }
 
 function createBall(scene, variant) {
@@ -161,6 +192,7 @@ function buildLevel(scene, level) {
 
     structure.pigs.forEach((pig) => {
       const body = createPig(scene, pig.x, pig.y, pig.variant);
+      placePigOnSupport(scene, body);
       scene.pigs.push(body);
       bodies.push(body);
     });
@@ -173,12 +205,38 @@ function getActiveBird(scene) {
   return scene.birdQueue.find((bird) => bird.status === "active") ?? null;
 }
 
+function getTryLabel(scene) {
+  return `TRY ${Math.min(scene.tryCount, 3)}`;
+}
+
+function getReadyTryPrompt(scene) {
+  return `${getTryLabel(scene)}. PINCH AND PULL TO START THE SHOT.`;
+}
+
+function getLostHandPrompt(scene) {
+  return `${getTryLabel(scene)}. HAND LOST. BRING IT BACK, THEN PINCH AND PULL AGAIN.`;
+}
+
+function getShortPullPrompt(scene) {
+  return `${getTryLabel(scene)}. TOO SHORT. PINCH AND PULL AGAIN.`;
+}
+
+function advanceTry(scene, emitOverlay = true) {
+  scene.tryCount = Math.min(scene.tryCount + 1, 3);
+  scene.tryActive = false;
+  scene.handLostReset = false;
+  if (emitOverlay) {
+    emitSceneEvent(scene, "TRY_ADVANCE", { tryCount: scene.tryCount });
+  }
+}
+
 function setNextActiveBird(scene) {
   const nextBird = scene.birdQueue.find((bird) => bird.status === "unused");
   if (nextBird) {
     nextBird.status = "active";
+    advanceTry(scene);
     scene.subState = "READY";
-    scene.statusText = "PINCH ANYWHERE TO ARM THE NEXT SHOT.";
+    scene.statusText = getReadyTryPrompt(scene);
     return true;
   }
 
@@ -250,6 +308,24 @@ function clonePoint(point) {
   return point ? { x: point.x, y: point.y } : null;
 }
 
+function averagePoints(points) {
+  if (!points.length) return null;
+
+  const total = points.reduce(
+    (acc, point) => {
+      acc.x += point.x;
+      acc.y += point.y;
+      return acc;
+    },
+    { x: 0, y: 0 },
+  );
+
+  return {
+    x: total.x / points.length,
+    y: total.y / points.length,
+  };
+}
+
 function clampPull(point) {
   const dx = CONSTANTS.SLINGSHOT_ORIGIN.x - Math.min(point.x, CONSTANTS.SLINGSHOT_ORIGIN.x);
   const dy = CONSTANTS.SLINGSHOT_ORIGIN.y - point.y;
@@ -273,6 +349,9 @@ function clampPull(point) {
 function resetPull(scene) {
   scene.dragging = false;
   scene.dragSource = null;
+  scene.pointerType = "mouse";
+  scene.dragAnchor = null;
+  scene.dragSamples = [];
   scene.gestureLock = null;
   scene.tension = 0;
   scene.trajectoryPoints = [];
@@ -281,6 +360,12 @@ function resetPull(scene) {
     vector: { x: 1, y: 0 },
     position: { ...CONSTANTS.SLINGSHOT_ORIGIN },
   };
+  scene.band = {
+    position: { ...CONSTANTS.SLINGSHOT_ORIGIN },
+    velocity: { x: 0, y: 0 },
+    attached: true,
+    stretch: 0,
+  };
 }
 
 function beginDrag(scene, source, point, message) {
@@ -288,6 +373,13 @@ function beginDrag(scene, source, point, message) {
 
   scene.dragging = true;
   scene.dragSource = source;
+  scene.tryActive = true;
+  scene.handLostReset = false;
+  scene.dragAnchor = {
+    inputStart: clonePoint(point),
+    origin: { ...CONSTANTS.SLINGSHOT_ORIGIN },
+  };
+  scene.dragSamples = [{ ...CONSTANTS.SLINGSHOT_ORIGIN }];
   scene.gestureLock =
     source === "gesture"
       ? {
@@ -317,8 +409,19 @@ function completeShot(scene, message) {
     removeBody(scene, scene.currentBall);
   }
 
+  const livingPigs = scene.pigs.filter((pig) => !pig.dead).length;
+  const wasMiss =
+    livingPigs > 0 &&
+    livingPigs === scene.pigsAtLaunch &&
+    scene.score === scene.scoreAtLaunch;
+  if (wasMiss) {
+    emitSceneEvent(scene, "SHOT_MISSED");
+  }
+
   scene.settleFrames = 0;
   scene.launchStartedAt = 0;
+  scene.pigsAtLaunch = 0;
+  scene.scoreAtLaunch = 0;
 
   const activeBird = getActiveBird(scene);
   if (activeBird) {
@@ -392,6 +495,7 @@ function damagePig(scene, pig, amount) {
       score: scene.score,
     });
     if (scene.pigs.every((candidate) => candidate.dead)) {
+      emitSceneEvent(scene, "LEVEL_CLEARED", { score: scene.score });
       scene.levelClearAt = performance.now() + CONSTANTS.LEVEL_COMPLETE_DELAY_MS;
     }
 
@@ -500,22 +604,52 @@ function bindCollisionHandlers(scene) {
 }
 
 function getGestureLockedPoint(scene, handPoint) {
-  if (!scene.gestureLock?.handStart || !handPoint) {
+  if (!scene.dragAnchor?.inputStart || !handPoint) {
     return handPoint;
   }
 
-  const offsetX = handPoint.x - scene.gestureLock.handStart.x;
-  const offsetY = handPoint.y - scene.gestureLock.handStart.y;
+  const offsetX = handPoint.x - scene.dragAnchor.inputStart.x;
+  const offsetY = handPoint.y - scene.dragAnchor.inputStart.y;
 
   return {
-    x: scene.gestureLock.origin.x + offsetX,
-    y: scene.gestureLock.origin.y + offsetY,
+    x: scene.dragAnchor.origin.x + offsetX * CONSTANTS.DRAG_RESPONSE,
+    y: scene.dragAnchor.origin.y + offsetY * CONSTANTS.DRAG_RESPONSE,
+  };
+}
+
+function getLagCompensation(scene, source) {
+  if (source === "gesture") return CONSTANTS.GESTURE_LAG_COMPENSATION;
+  if (scene.pointerType === "touch") return CONSTANTS.TOUCH_LAG_COMPENSATION;
+  return 0;
+}
+
+function getSmoothedPoint(scene, point, source) {
+  scene.dragSamples.push(clonePoint(point));
+  if (scene.dragSamples.length > CONSTANTS.DRAG_SAMPLE_SIZE) {
+    scene.dragSamples.shift();
+  }
+
+  const averaged = averagePoints(scene.dragSamples) ?? point;
+  const lagCompensation = getLagCompensation(scene, source);
+
+  if (scene.dragSamples.length < 2 || lagCompensation <= 0) {
+    return averaged;
+  }
+
+  const last = scene.dragSamples[scene.dragSamples.length - 1];
+  const prev = scene.dragSamples[scene.dragSamples.length - 2];
+
+  return {
+    x: averaged.x + (last.x - prev.x) * lagCompensation,
+    y: averaged.y + (last.y - prev.y) * lagCompensation,
   };
 }
 
 function updateDragging(scene, point, source = scene.dragSource) {
-  const nextPoint = source === "gesture" ? getGestureLockedPoint(scene, point) : point;
-  if (!nextPoint) return;
+  const anchoredPoint = getGestureLockedPoint(scene, point);
+  if (!anchoredPoint) return;
+
+  const nextPoint = getSmoothedPoint(scene, anchoredPoint, source);
 
   scene.gesture.locked = source === "gesture";
   scene.pull = clampPull(nextPoint);
@@ -523,11 +657,16 @@ function updateDragging(scene, point, source = scene.dragSource) {
     source === "gesture" ? clonePoint(CONSTANTS.SLINGSHOT_ORIGIN) : null;
   scene.tension = scene.pull.distance / CONSTANTS.MAX_PULL_DIST;
   scene.trajectoryPoints = getTrajectoryPoints(scene, scene.pull.vector, scene.pull.distance);
+  scene.band.position = clonePoint(scene.pull.position);
+  scene.band.velocity = { x: 0, y: 0 };
+  scene.band.attached = true;
+  scene.band.stretch = scene.tension;
 }
 
 function launch(scene) {
   const activeBird = getActiveBird(scene);
   if (!activeBird) return;
+  const releasedPoint = clonePoint(scene.pull.position);
 
   const ball = createBall(scene, activeBird.variant);
   scene.Matter.Body.setPosition(ball, scene.pull.position);
@@ -545,8 +684,27 @@ function launch(scene) {
   });
   scene.dragging = false;
   scene.dragSource = null;
+  scene.dragAnchor = null;
+  scene.dragSamples = [];
   scene.tension = 0;
   scene.trajectoryPoints = [];
+  scene.pigsAtLaunch = scene.pigs.filter((pig) => !pig.dead).length;
+  scene.scoreAtLaunch = scene.score;
+  scene.band = {
+    position: releasedPoint,
+    velocity: {
+      x: (CONSTANTS.SLINGSHOT_ORIGIN.x - releasedPoint.x) * 0.12,
+      y: (CONSTANTS.SLINGSHOT_ORIGIN.y - releasedPoint.y) * 0.12,
+    },
+    attached: false,
+    stretch: Math.min(
+      Math.hypot(
+        CONSTANTS.SLINGSHOT_ORIGIN.x - releasedPoint.x,
+        CONSTANTS.SLINGSHOT_ORIGIN.y - releasedPoint.y,
+      ) / CONSTANTS.MAX_PULL_DIST,
+      1,
+    ),
+  };
 }
 
 function updateLaunchedBall(scene) {
@@ -590,7 +748,14 @@ function cleanupOffscreenBodies(scene) {
     }
   });
 
-  if (scene.currentBall && scene.currentBall.position.y > 860) {
+  if (
+    scene.currentBall &&
+    (
+      scene.currentBall.position.y > 860 ||
+      scene.currentBall.position.x < -120 ||
+      scene.currentBall.position.x > CONSTANTS.CANVAS_W + 120
+    )
+  ) {
     completeShot(scene, "SHOT LOST OFF-SITE. NEXT BALL LOADED.");
   }
 }
@@ -621,9 +786,41 @@ function resolveSceneOutcome(scene) {
   }
 }
 
+function updateBand(scene, deltaMs) {
+  if (scene.dragging) {
+    scene.band.position = clonePoint(scene.pull.position);
+    scene.band.velocity = { x: 0, y: 0 };
+    scene.band.attached = true;
+    scene.band.stretch = scene.tension;
+    return;
+  }
+
+  const dt = deltaMs / (1000 / 60);
+  const dx = CONSTANTS.SLINGSHOT_ORIGIN.x - scene.band.position.x;
+  const dy = CONSTANTS.SLINGSHOT_ORIGIN.y - scene.band.position.y;
+  const ax =
+    dx * CONSTANTS.BAND_SPRING_STIFFNESS - scene.band.velocity.x * CONSTANTS.BAND_SPRING_DAMPING;
+  const ay =
+    dy * CONSTANTS.BAND_SPRING_STIFFNESS - scene.band.velocity.y * CONSTANTS.BAND_SPRING_DAMPING;
+
+  scene.band.velocity.x += ax * dt;
+  scene.band.velocity.y += ay * dt;
+  scene.band.position.x += scene.band.velocity.x * dt;
+  scene.band.position.y += scene.band.velocity.y * dt;
+  scene.band.stretch = Math.min(Math.hypot(dx, dy) / CONSTANTS.MAX_PULL_DIST, 1);
+
+  if (Math.hypot(dx, dy) < 0.6 && Math.hypot(scene.band.velocity.x, scene.band.velocity.y) < 0.4) {
+    scene.band.position = { ...CONSTANTS.SLINGSHOT_ORIGIN };
+    scene.band.velocity = { x: 0, y: 0 };
+    scene.band.attached = true;
+    scene.band.stretch = 0;
+  }
+}
+
 export function createPhysicsScene(level, hooks = {}) {
   const Matter = getMatter();
   const engine = Matter.Engine.create({
+    enableSleeping: true,
     gravity: { x: 0, y: CONSTANTS.GRAVITY_Y },
     positionIterations: 10,
     velocityIterations: 8,
@@ -652,13 +849,27 @@ export function createPhysicsScene(level, hooks = {}) {
     },
     score: 0,
     subState: "READY",
-    statusText: "WAITING FOR PINCH INPUT. MOUSE DRAG IS STILL AVAILABLE.",
+    statusText: getReadyTryPrompt({ tryCount: 1 }),
+    tryCount: 1,
+    tryActive: false,
+    handLostReset: false,
     inputMode: "GESTURE",
     outcomeHandled: false,
     levelClearAt: 0,
     settleFrames: 0,
     launchStartedAt: 0,
+    pigsAtLaunch: 0,
+    scoreAtLaunch: 0,
     activeTimers: new Set(),
+    pointerType: "mouse",
+    dragAnchor: null,
+    dragSamples: [],
+    band: {
+      position: { ...CONSTANTS.SLINGSHOT_ORIGIN },
+      velocity: { x: 0, y: 0 },
+      attached: true,
+      stretch: 0,
+    },
     gesture: {
       trackerStatus: "BOOTING",
       activeHandLabel: "NONE",
@@ -688,7 +899,11 @@ export function destroyPhysicsScene(scene) {
   scene.Matter.Engine.clear(scene.engine);
 }
 
-export function handlePointerEvent(scene, type, point) {
+function isPointerSource(source) {
+  return source === "mouse" || source === "touch";
+}
+
+export function handlePointerEvent(scene, type, point, pointerType = "mouse") {
   if (!scene) return false;
 
   if (type === "down") {
@@ -699,19 +914,21 @@ export function handlePointerEvent(scene, type, point) {
     );
     if (distance > CONSTANTS.SLINGSHOT_ZONE_RADIUS) return false;
 
-    return beginDrag(scene, "mouse", point, "MOUSE DRAG ACTIVE. RELEASE TO FIRE.");
+    scene.pointerType = pointerType;
+    return beginDrag(scene, "mouse", point, "LOCKED TO THE SLING. DRAG BACK, THEN LET GO.");
   }
 
-  if (type === "move" && scene.dragging && scene.dragSource === "mouse") {
+  if (type === "move" && scene.dragging && isPointerSource(scene.dragSource)) {
     updateDragging(scene, point);
     return true;
   }
 
-  if (type === "up" && scene.dragging && scene.dragSource === "mouse") {
-    if (scene.pull.distance > 6) {
+  if (type === "up" && scene.dragging && isPointerSource(scene.dragSource)) {
+    if (scene.pull.distance > 8) {
       launch(scene);
     } else {
-      cancelDrag(scene, "DRAG FARTHER TO ARM THE SHOT.");
+      advanceTry(scene);
+      cancelDrag(scene, getShortPullPrompt(scene));
     }
     return true;
   }
@@ -734,19 +951,36 @@ export function handleGestureFrame(scene, gestureFrame) {
   };
 
   if (gestureFrame.pinchState?.event === "PINCH_RELEASE" && scene.dragSource === "gesture") {
-    if (scene.pull.distance > 6) {
+    if (scene.pull.distance > 8) {
       launch(scene);
     } else {
-      cancelDrag(scene, "PINCH TOO SHORT. RESET TO SLINGSHOT.");
+      advanceTry(scene);
+      cancelDrag(scene, getShortPullPrompt(scene));
     }
     return;
   }
 
   if (!gestureFrame.activeHand) {
     if (scene.dragging && scene.dragSource === "gesture") {
-      cancelDrag(scene, "HAND LOST. BALL RESET TO SLINGSHOT.");
+      advanceTry(scene, false);
+      emitSceneEvent(scene, "HAND_LOST", { tryCount: scene.tryCount });
+      scene.handLostReset = true;
+      cancelDrag(scene, getLostHandPrompt(scene));
+    } else if (scene.subState === "READY" && scene.tryActive) {
+      advanceTry(scene, false);
+      emitSceneEvent(scene, "HAND_LOST", { tryCount: scene.tryCount });
+      scene.handLostReset = true;
+      scene.statusText = getLostHandPrompt(scene);
     }
     return;
+  }
+
+  if (scene.subState === "READY") {
+    if (scene.handLostReset) {
+      scene.handLostReset = false;
+      scene.statusText = getReadyTryPrompt(scene);
+    }
+    scene.tryActive = true;
   }
 
   if (
@@ -757,13 +991,15 @@ export function handleGestureFrame(scene, gestureFrame) {
       gestureFrame.pinchState?.event === "PINCH_HOLD"
     )
   ) {
-    beginDrag(scene, "gesture", gestureFrame.handCenter, "PINCH LOCKED. PULL ANYWHERE TO ARM.");
+    beginDrag(scene, "gesture", gestureFrame.handCenter, "PINCH LOCKED. PULL BACK, THEN OPEN TO FIRE.");
     return;
   }
 
   if (gestureFrame.pinchState?.active && scene.dragSource === "gesture") {
     updateDragging(scene, gestureFrame.handCenter, "gesture");
-    scene.statusText = "PINCH HELD. OPEN ANYWHERE TO FIRE.";
+    scene.statusText = scene.pull.distance > 8
+      ? "SHOT ARMED. OPEN YOUR HAND TO FIRE."
+      : "PINCH HELD. PULL BACK FARTHER TO ARM.";
   }
 }
 
@@ -771,6 +1007,7 @@ export function stepPhysicsScene(scene, deltaMs) {
   if (!scene) return;
 
   scene.Matter.Engine.update(scene.engine, deltaMs);
+  updateBand(scene, deltaMs);
   cleanupOffscreenBodies(scene);
   updateLaunchedBall(scene);
   resolveSceneOutcome(scene);

@@ -2,7 +2,12 @@ import { CONSTANTS } from "../constants.js";
 
 const { PINCH_THRESHOLD, PINCH_HYSTERESIS, SLINGSHOT_ORIGIN, SLINGSHOT_ZONE_RADIUS } =
   CONSTANTS;
-const { PINCH_THRESHOLD_RATIO, PINCH_RATIO_HYSTERESIS } = CONSTANTS;
+const {
+  PINCH_THRESHOLD_RATIO,
+  PINCH_RATIO_HYSTERESIS,
+  PINCH_CONFIRM_FRAMES,
+  RELEASE_CONFIRM_FRAMES,
+} = CONSTANTS;
 
 function distanceBetween(a, b) {
   if (!a || !b) return 0;
@@ -49,15 +54,36 @@ export function isPinching(hand, currentlyPinching = false) {
   );
 }
 
-export function updatePinchState(hand, prevState = { active: false, event: "IDLE" }) {
-  if (!hand) return { active: false, event: "IDLE" };
+export function updatePinchState(
+  hand,
+  prevState = { active: false, event: "IDLE", pinchFrames: 0, releaseFrames: 0 },
+) {
+  if (!hand) {
+    return { active: false, event: "IDLE", pinchFrames: 0, releaseFrames: 0 };
+  }
 
   const pinching = isPinching(hand, prevState.active);
+  const pinchFrames = pinching ? (prevState.pinchFrames ?? 0) + 1 : 0;
+  const releaseFrames = pinching ? 0 : (prevState.releaseFrames ?? 0) + 1;
 
-  if (!prevState.active && pinching) return { active: true, event: "PINCH_START" };
-  if (prevState.active && pinching) return { active: true, event: "PINCH_HOLD" };
-  if (prevState.active && !pinching) return { active: false, event: "PINCH_RELEASE" };
-  return { active: false, event: "IDLE" };
+  if (!prevState.active && pinchFrames >= PINCH_CONFIRM_FRAMES) {
+    return { active: true, event: "PINCH_START", pinchFrames, releaseFrames: 0 };
+  }
+
+  if (prevState.active && pinching) {
+    return { active: true, event: "PINCH_HOLD", pinchFrames, releaseFrames: 0 };
+  }
+
+  if (prevState.active && releaseFrames >= RELEASE_CONFIRM_FRAMES) {
+    return { active: false, event: "PINCH_RELEASE", pinchFrames: 0, releaseFrames };
+  }
+
+  return {
+    active: Boolean(prevState.active),
+    event: prevState.active ? "PINCH_HOLD" : "IDLE",
+    pinchFrames,
+    releaseFrames,
+  };
 }
 
 export function getHandCenter(hand) {

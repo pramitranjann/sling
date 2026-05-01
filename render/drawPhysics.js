@@ -28,13 +28,17 @@ function drawGround(ctx, palette) {
 }
 
 function drawSlingshot(ctx, palette) {
+  const postWidth = 16;
+  const postHeight = 166;
+  const forkWidth = 6;
+  const forkHeight = 14;
   const pillars = [
-    { x: 136, y: 576, w: 16, h: 166 },
-    { x: 160, y: 576, w: 16, h: 166 },
+    { x: CONSTANTS.BAND_LEFT.x - 12, y: 576, w: postWidth, h: postHeight },
+    { x: CONSTANTS.BAND_RIGHT.x - 12, y: 576, w: postWidth, h: postHeight },
   ];
   const forks = [
-    { x: 130, y: 572, w: 6, h: 14 },
-    { x: 176, y: 572, w: 6, h: 14 },
+    { x: CONSTANTS.BAND_LEFT.x - 18, y: 572, w: forkWidth, h: forkHeight },
+    { x: CONSTANTS.BAND_RIGHT.x + 4, y: 572, w: forkWidth, h: forkHeight },
   ];
 
   ctx.save();
@@ -255,20 +259,41 @@ function drawCurrentBall(ctx, scene, palette) {
 }
 
 function drawSlingshotBand(ctx, scene, palette) {
-  const target = scene.currentBall
-    ? scene.currentBall.position
-    : scene.dragging
-      ? scene.pull.position
-      : CONSTANTS.SLINGSHOT_ORIGIN;
+  const target = scene.band?.position ?? CONSTANTS.SLINGSHOT_ORIGIN;
+  const stretch = scene.band?.stretch ?? 0;
+  const controlOffsetX = stretch * 20;
+  const controlOffsetY = stretch * 8;
 
   ctx.save();
   ctx.strokeStyle = palette.black;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 3 + stretch * 2;
+  ctx.lineCap = "round";
   ctx.beginPath();
   ctx.moveTo(CONSTANTS.BAND_LEFT.x, CONSTANTS.BAND_LEFT.y);
-  ctx.lineTo(target.x, target.y);
-  ctx.lineTo(CONSTANTS.BAND_RIGHT.x, CONSTANTS.BAND_RIGHT.y);
+  ctx.quadraticCurveTo(
+    (CONSTANTS.BAND_LEFT.x + target.x) * 0.5 - controlOffsetX,
+    (CONSTANTS.BAND_LEFT.y + target.y) * 0.5 + controlOffsetY,
+    target.x,
+    target.y,
+  );
+  ctx.moveTo(CONSTANTS.BAND_RIGHT.x, CONSTANTS.BAND_RIGHT.y);
+  ctx.quadraticCurveTo(
+    (CONSTANTS.BAND_RIGHT.x + target.x) * 0.5 + controlOffsetX,
+    (CONSTANTS.BAND_RIGHT.y + target.y) * 0.5 + controlOffsetY,
+    target.x,
+    target.y,
+  );
   ctx.stroke();
+
+  if (stretch > 0.02) {
+    ctx.strokeStyle = "rgba(255, 209, 0, 0.3)";
+    ctx.lineWidth = 1 + stretch;
+    ctx.beginPath();
+    ctx.moveTo(CONSTANTS.BAND_LEFT.x, CONSTANTS.BAND_LEFT.y);
+    ctx.lineTo(target.x, target.y);
+    ctx.lineTo(CONSTANTS.BAND_RIGHT.x, CONSTANTS.BAND_RIGHT.y);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 

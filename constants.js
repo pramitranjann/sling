@@ -18,20 +18,28 @@ export const CONSTANTS = {
   CAM_W:                  240,
   CAM_H:                  180,
   CAM_LEFT:               24,     // px from canvas left
-  CAM_TOP:                52,     // px from canvas top = HUD_TOP_H + 8
+  CAM_TOP:                68,     // px from canvas top = HUD_TOP_H + CAM_LEFT
 
   // ── Slingshot ────────────────────────────────────────────
   SLINGSHOT_ORIGIN:       { x: 160, y: 580 },
   BAND_LEFT:              { x: 148, y: 572 },
   BAND_RIGHT:             { x: 172, y: 572 },
-  MAX_PULL_DIST:          120,    // px — max stretch from origin
-  MAX_LAUNCH_SPEED:       28,     // px/frame at 60fps
-  SLINGSHOT_ZONE_RADIUS:  120,    // px — interaction zone around origin
+  MAX_PULL_DIST:          144,    // px — max stretch from origin
+  MAX_LAUNCH_SPEED:       22,     // px/frame at 60fps
+  SLINGSHOT_ZONE_RADIUS:  168,    // px — interaction zone around origin
+  BAND_SPRING_STIFFNESS:  0.16,
+  BAND_SPRING_DAMPING:    0.78,
+  DRAG_SAMPLE_SIZE:       8,
+  GESTURE_LAG_COMPENSATION: 0.06,
+  TOUCH_LAG_COMPENSATION:   0.04,
+  DRAG_RESPONSE:          0.88,
+  LEVEL_Y_OFFSET:         -48,
+  PIG_SPAWN_CLEARANCE:    2,
 
   // ── Physics world ────────────────────────────────────────
   GRAVITY_Y:              1.8,
-  GROUND_Y:               740,    // y of ground body center
-  GROUND_VISIBLE_Y:       720,    // y where ground becomes visible
+  GROUND_Y:               692,    // y of ground body center
+  GROUND_VISIBLE_Y:       672,    // y where ground becomes visible
 
   // ── Ball ─────────────────────────────────────────────────
   BALL: {
@@ -90,10 +98,12 @@ export const CONSTANTS = {
   BIRDS_REMAINING_BONUS:      400,  // pts per unused bird on level complete
 
   // ── Gesture ──────────────────────────────────────────────
-  PINCH_THRESHOLD:            24,   // px — thumb-to-index distance
-  PINCH_HYSTERESIS:           6,    // px — extra gap needed to release
-  PINCH_THRESHOLD_RATIO:      0.34,
-  PINCH_RATIO_HYSTERESIS:     0.08,
+  PINCH_THRESHOLD:            28,   // px — thumb-to-index distance
+  PINCH_HYSTERESIS:           8,    // px — extra gap needed to release
+  PINCH_THRESHOLD_RATIO:      0.38,
+  PINCH_RATIO_HYSTERESIS:     0.10,
+  PINCH_CONFIRM_FRAMES:       2,
+  RELEASE_CONFIRM_FRAMES:     3,
   MEDIAPIPE_MAX_HANDS:        2,
   MEDIAPIPE_DETECTION_CONF:   0.55,
   MEDIAPIPE_TRACKING_CONF:    0.50,

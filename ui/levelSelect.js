@@ -17,7 +17,7 @@ function getCardMeta(level, state, record) {
     return {
       badge: "LOCKED",
       score: "SEALED",
-      helper: `CLEAR ${String(level.id - 1).padStart(2, "0")} TO OPEN`,
+      helper: `CLEAR ${String(level.id - 1).padStart(2, "0")} TO UNLOCK`,
     };
   }
 
@@ -40,7 +40,7 @@ function getCardMeta(level, state, record) {
   return {
     badge: "READY",
     score: "STANDBY",
-    helper: "UNLOCKED",
+    helper: "AVAILABLE",
   };
 }
 
