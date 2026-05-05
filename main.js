@@ -112,6 +112,9 @@ const CALIBRATION_LEVEL = {
   ],
 };
 
+const CALIBRATION_RENDER_Y_OFFSET = 50;
+const GAMEPLAY_RENDER_Y_OFFSET = 10;
+
 function pickRandom(items) {
   return items[Math.floor(Math.random() * items.length)] ?? "";
 }
@@ -434,7 +437,7 @@ function mountCalibrationScene() {
     onEvent: audio.handleSceneEvent,
   });
   calibrationScene.hideGround = true;
-  calibrationScene.renderYOffset = 50;
+  calibrationScene.renderYOffset = CALIBRATION_RENDER_Y_OFFSET;
   calibrationScene.gesture.trackerStatus = trackerStatus;
   lastFrameTime = 0;
   renderCalibrationScene();
@@ -464,7 +467,7 @@ function mountLevel(levelId) {
   scene = createPhysicsScene(level, {
     onEvent: audio.handleSceneEvent,
   });
-  scene.renderYOffset = 50;
+  scene.renderYOffset = GAMEPLAY_RENDER_Y_OFFSET;
   scene.gesture.trackerStatus = trackerStatus;
   lastFrameTime = 0;
   renderGameplay();
@@ -920,9 +923,11 @@ calibrationVfxCtx = ui.refs.calibrationVfxCanvas.getContext("2d");
     hasNextLevel: true,
   });
   ui.updateLevelFail(state.preview.fail);
-  transition(APP_STATES.HOME);
+transition(APP_STATES.LEVEL_SELECT);
+animationFrame = requestAnimationFrame(frame);
+  // transition(APP_STATES.HOME);
 
-  animationFrame = requestAnimationFrame(frame);
+  //animationFrame = requestAnimationFrame(frame);
 }
 
 boot().catch((error) => {

@@ -9,7 +9,7 @@
 
     {
       "id": 1,
-      "name": "QUARRY A",
+      "name": "QUARRY",
       "par": 2400,
       "birds": ["standard", "standard", "standard"],
       "structures": [
