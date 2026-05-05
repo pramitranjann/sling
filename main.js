@@ -335,7 +335,7 @@ function buildCalibrationTutorial(gestureFrame) {
     progressLabel: state.calibration.releasePassed
       ? "TRAINING COMPLETE"
       : `STEP ${activeStep} / 4`,
-    ready: state.calibration.releasePassed,
+    ready: state.calibration.releasePassed && state.calibration.targetHitPassed,
   };
 }
 
@@ -800,6 +800,14 @@ function frame(now) {
       handleGestureFrame(calibrationScene, gestureFrame);
       calibrationScene.gesture.trackerStatus = trackerStatus;
       stepPhysicsScene(calibrationScene, deltaMs);
+
+      const calibrationTargetHit =
+  calibrationScene.pigs?.some((pig) => pig.dead || pig.health < pig.maxHealth) ||
+  calibrationScene.subState === "SITE_CLEAR";
+
+if (calibrationTargetHit) {
+  state.calibration.targetHitPassed = true;
+}
 
       const shouldReloadTrainingBall =
         calibrationScene.subState === "FLYING" ||
