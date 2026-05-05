@@ -44,6 +44,11 @@ let audioMuted = false;
 
 let levels = [];
 let scene = null;
+let calibrationScene = null;
+let calibrationPhysicsCtx = null;
+let calibrationVfxCtx = null;
+let calibrationReloadTimer = 0;
+
 let animationFrame = 0;
 let lastFrameTime = 0;
 
@@ -52,7 +57,15 @@ let trackerStatus = "OFFLINE";
 let gestureReady = false;
 let gestureBootPromise = null;
 let pinchState = { active: false, event: "IDLE", pinchFrames: 0, releaseFrames: 0 };
+let lastTrackerTimestampMs = 0;
 let audioUnlockStarted = false;
+
+function getMonotonicTrackerTimestamp(now) {
+  const timestamp = Math.floor(now);
+  const safeTimestamp = Math.max(timestamp, lastTrackerTimestampMs + 1);
+  lastTrackerTimestampMs = safeTimestamp;
+  return safeTimestamp;
+}
 
 const CALLOUTS = {
   launch: [
@@ -79,6 +92,23 @@ const CALLOUTS = {
     "Site cleared.",
     "Demolition complete.",
     "Target zone neutralized.",
+  ],
+};
+
+const CALIBRATION_LEVEL = {
+  id: 0,
+  name: "TRAINING RANGE",
+  par: 1000,
+  birds: ["standard"],
+  structures: [
+    {
+      blocks: [
+        { x: 700, y: 785, type: "1x1" },
+      ],
+      pigs: [
+        { x: 880, y: 725, variant: "standard" },
+      ],
+    },
   ],
 };
 
@@ -376,16 +406,58 @@ function renderGameplay() {
   updateGameplayHUD();
 }
 
+function renderCalibrationScene() {
+  if (!calibrationScene || state.current !== APP_STATES.CALIBRATION) return;
+
+  drawScene({
+    scene: calibrationScene,
+    physicsCtx: calibrationPhysicsCtx,
+    vfxCtx: calibrationVfxCtx,
+    palette,
+  });
+}
+
+function destroyCalibrationScene() {
+  if (calibrationReloadTimer) {
+    window.clearTimeout(calibrationReloadTimer);
+    calibrationReloadTimer = 0;
+  }
+
+  if (!calibrationScene) return;
+  destroyPhysicsScene(calibrationScene);
+  calibrationScene = null;
+}
+
+function mountCalibrationScene() {
+  destroyCalibrationScene();
+  calibrationScene = createPhysicsScene(CALIBRATION_LEVEL, {
+    onEvent: audio.handleSceneEvent,
+  });
+  calibrationScene.hideGround = true;
+  calibrationScene.renderYOffset = 50;
+  calibrationScene.gesture.trackerStatus = trackerStatus;
+  lastFrameTime = 0;
+  renderCalibrationScene();
+}
+
+function queueCalibrationReload(delayMs = 900) {
+  if (calibrationReloadTimer) return;
+  calibrationReloadTimer = window.setTimeout(() => {
+    calibrationReloadTimer = 0;
+    if (state.current === APP_STATES.CALIBRATION) {
+      mountCalibrationScene();
+    }
+  }, delayMs);
+}
+
 function destroyScene() {
   if (!scene) return;
   destroyPhysicsScene(scene);
   scene = null;
 }
-
 function mountLevel(levelId) {
   const level = getLevelById(levels, levelId) ?? levels[0] ?? null;
   if (!level) return;
-
   destroyScene();
   state.levelId = level.id;
   scene = createPhysicsScene(level, {
@@ -409,6 +481,10 @@ function transition(nextState, data = {}) {
     destroyScene();
   }
 
+  if (state.current === APP_STATES.CALIBRATION && nextState !== APP_STATES.CALIBRATION) {
+    destroyCalibrationScene();
+  }
+
   if (nextState !== APP_STATES.CALIBRATION && nextState !== APP_STATES.GAMEPLAY) {
     ui.clearWebcamOverlays();
   }
@@ -425,12 +501,15 @@ function transition(nextState, data = {}) {
   if (nextState === APP_STATES.CALIBRATION) {
     audio.startAmbientHum();
     resetCalibrationProgress();
+    mountCalibrationScene();
+
     ui.updateCalibration({
       trackerStatus,
       handDetected: false,
       pinchActive: false,
       tutorial: buildCalibrationTutorial(makeGestureFrame()),
     });
+
     void ensureGestureBoot();
     return;
   }
@@ -664,12 +743,26 @@ function buildGestureFrame(now) {
 
   tracker.setVideoSource(getTrackerVideoSource());
 
-  const hands = tracker.detect(now, {
+let hands = [];
+
+try {
+  hands = tracker.detect(getMonotonicTrackerTimestamp(now), {
     x: 0,
     y: 0,
     width: gameplayRefs.physicsCanvas.width,
     height: gameplayRefs.physicsCanvas.height,
   });
+} catch (error) {
+  console.warn("Tracker frame skipped:", error);
+
+  pinchState = { active: false, event: "IDLE", pinchFrames: 0, releaseFrames: 0 };
+  setTrackerStatus("TRACKER SYNCING");
+
+  return {
+    ...gestureFrame,
+    pinchState,
+  };
+}
 
   const activeHand = getActiveHand(hands);
 
@@ -703,6 +796,25 @@ function frame(now) {
   const gestureFrame = buildGestureFrame(now);
 
   if (state.current === APP_STATES.CALIBRATION) {
+    if (calibrationScene) {
+      handleGestureFrame(calibrationScene, gestureFrame);
+      calibrationScene.gesture.trackerStatus = trackerStatus;
+      stepPhysicsScene(calibrationScene, deltaMs);
+
+      const shouldReloadTrainingBall =
+        calibrationScene.subState === "FLYING" ||
+        calibrationScene.subState === "SHOT_DONE" ||
+        calibrationScene.subState === "SETTLING" ||
+        calibrationScene.subState === "OUT_OF_BIRDS" ||
+        calibrationScene.subState === "SITE_CLEAR";
+
+      if (shouldReloadTrainingBall) {
+        queueCalibrationReload(900);
+      }
+
+      renderCalibrationScene();
+    }
+
     updateCalibrationScreen(gestureFrame);
   }
 
@@ -724,6 +836,25 @@ function frame(now) {
 
   animationFrame = requestAnimationFrame(frame);
 }
+
+  if (state.current === APP_STATES.GAMEPLAY && scene) {
+    handleGestureFrame(scene, gestureFrame);
+    scene.gesture.trackerStatus = trackerStatus;
+    stepPhysicsScene(scene, deltaMs);
+    renderGameplay();
+    updateGameplayCamera(gestureFrame);
+
+    if (!scene.outcomeHandled && scene.subState === "SITE_CLEAR") {
+      scene.outcomeHandled = true;
+      finalizeLevelComplete(scene);
+    } else if (!scene.outcomeHandled && scene.subState === "OUT_OF_BIRDS") {
+      scene.outcomeHandled = true;
+      finalizeLevelFail(scene);
+    }
+  }
+
+  animationFrame = requestAnimationFrame(frame);
+
 
 async function waitForMatter(timeoutMs = 4000) {
   const start = performance.now();
@@ -760,6 +891,9 @@ async function boot() {
   gameplayRefs = ui.refs.gameplayRefs;
   physicsCtx = gameplayRefs.physicsCanvas.getContext("2d");
   vfxCtx = gameplayRefs.vfxCanvas.getContext("2d");
+  calibrationPhysicsCtx = ui.refs.calibrationPhysicsCanvas.getContext("2d");
+calibrationVfxCtx = ui.refs.calibrationVfxCanvas.getContext("2d");
+
 
   bindPointerInput();
   bindKeyboardShortcuts();

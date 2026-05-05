@@ -60,7 +60,11 @@ function drawHandSkeleton(canvas, hand, pinchActive) {
   });
 
   points.forEach((point, index) => {
-    const radius = index === 4 || index === 8 ? Math.max(3.5, width / 80) : Math.max(2, width / 120);
+    const radius =
+      index === 4 || index === 8
+        ? Math.max(3.5, width / 80)
+        : Math.max(2, width / 120);
+
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -71,10 +75,18 @@ function drawHandSkeleton(canvas, hand, pinchActive) {
 }
 
 function applyTutorialStep(stepNode, statusNode, isDone, isActive) {
+
   if (!stepNode || !statusNode) return;
   stepNode.classList.toggle("tutorial-step--done", isDone);
   stepNode.classList.toggle("tutorial-step--active", !isDone && isActive);
-  statusNode.textContent = isDone ? "READY" : isActive ? "NOW" : "UP NEXT";
+  stepNode.classList.toggle("tutorial-step--pending", !isDone && !isActive);
+  if (isDone) {
+    statusNode.textContent = "DONE";
+  } else if (isActive) {
+    statusNode.textContent = "NOW";
+  } else {
+    statusNode.textContent = "UP NEXT";
+  }
 }
 
 function clearTimers(timers) {
@@ -108,6 +120,7 @@ function animateCount(node, value, durationMs, onTick) {
     const eased = 1 - (1 - progress) * (1 - progress);
     node.textContent = Math.round(finish * eased).toLocaleString();
     onTick?.(progress);
+
     if (progress < 1) {
       window.requestAnimationFrame(tick);
     }
@@ -140,6 +153,7 @@ function markup() {
         <div class="stripe"></div>
       </div>
     `,
+
     calibration: `
       <div class="screen-frame">
         <div class="stripe"></div>
@@ -149,23 +163,24 @@ function markup() {
             <span class="screen-bar__title">CALIBRATION</span>
             <button id="calibrationMuteBtn" class="nav-link nav-link--button" type="button">MUTE</button>
           </header>
+
           <div class="screen-content calibration-shell">
             <div class="calibration-demo game-root">
               <div class="game-root__bg grid-bg"></div>
 
-              <div class="calibration-demo__slingshot">
-                <span class="calibration-demo__post calibration-demo__post--left"></span>
-                <span class="calibration-demo__post calibration-demo__post--right"></span>
-                <span class="calibration-demo__fork calibration-demo__fork--left"></span>
-                <span class="calibration-demo__fork calibration-demo__fork--right"></span>
-                <span class="calibration-demo__band calibration-demo__band--left"></span>
-                <span class="calibration-demo__band calibration-demo__band--right"></span>
-                <span class="calibration-demo__ball"></span>
-              </div>
+              <canvas
+                id="calibrationPhysicsCanvas"
+                class="calibration-demo__canvas"
+                width="1280"
+                height="720"
+              ></canvas>
 
-              <div class="calibration-demo__zone"></div>
-              <div class="calibration-demo__origin"></div>
-              <div class="calibration-demo__hand" id="calibrationTrainingHand"></div>
+              <canvas
+                id="calibrationVfxCanvas"
+                class="calibration-demo__canvas calibration-demo__canvas--vfx"
+                width="1280"
+                height="720"
+              ></canvas>
 
               <div class="webcam-window webcam-window--calibration">
                 <video id="calibrationVideo" autoplay playsinline muted></video>
@@ -189,12 +204,14 @@ function markup() {
                     <span class="hud-meta__value" id="calibrationTrackerCopy">OFFLINE</span>
                   </div>
                 </div>
+
                 <div class="hud-group hud-group--center">
                   <div class="hud-meta">
                     <span class="hud-meta__label">STEP</span>
                     <span class="hud-meta__value" id="calibrationGuideProgress">STEP 1 / 4</span>
                   </div>
                 </div>
+
                 <div class="hud-score">
                   <span class="hud-score__label">STATUS</span>
                   <span class="hud-score__value" id="calibrationDemoStatus">WAIT</span>
@@ -207,6 +224,7 @@ function markup() {
                 <p class="guide-card__copy" id="calibrationGuideCopy">
                   SHOW ONE HAND TO THE CAMERA TO BEGIN THE LIVE DEMO.
                 </p>
+
                 <div class="tutorial-steps tutorial-steps--compact">
                   <div class="tutorial-step tutorial-step--compact" id="calibrationStepHand">
                     <div class="tutorial-step__body">
@@ -214,18 +232,21 @@ function markup() {
                     </div>
                     <span class="tutorial-step__state" id="calibrationStepHandState">WAIT</span>
                   </div>
+
                   <div class="tutorial-step tutorial-step--compact" id="calibrationStepZone">
                     <div class="tutorial-step__body">
                       <span class="tutorial-step__label">Pinch To Lock</span>
                     </div>
                     <span class="tutorial-step__state" id="calibrationStepZoneState">WAIT</span>
                   </div>
+
                   <div class="tutorial-step tutorial-step--compact" id="calibrationStepPull">
                     <div class="tutorial-step__body">
                       <span class="tutorial-step__label">Pull Back</span>
                     </div>
                     <span class="tutorial-step__state" id="calibrationStepPullState">WAIT</span>
                   </div>
+
                   <div class="tutorial-step tutorial-step--compact" id="calibrationStepRelease">
                     <div class="tutorial-step__body">
                       <span class="tutorial-step__label">Open To Fire</span>
@@ -233,13 +254,15 @@ function markup() {
                     <span class="tutorial-step__state" id="calibrationStepReleaseState">WAIT</span>
                   </div>
                 </div>
+
                 <div class="tracker-copy calibration-demo__guide-hint">
                   MOVE INTO RANGE, PINCH TO LOCK, THEN OPEN YOUR HAND TO RELEASE.
                 </div>
-                <button id="enterSiteBtn" class="btn-primary calibration-demo__enter" type="button" disabled>
-                  ENTER THE RANGE
-                </button>
               </div>
+          
+<button id="enterSiteBtn" class="calibration-demo__enter-final" type="button" disabled>
+  ENTER THE RANGE
+</button>
 
               <div class="hud-bottom calibration-demo__footer">
                 <div class="hud-bottom__group">
@@ -250,6 +273,7 @@ function markup() {
                     </span>
                   </div>
                 </div>
+
                 <div class="hud-bottom__group hud-bottom__group--right calibration-demo__progress">
                   <span class="rail-block__label">TRAINING PROGRESS</span>
                   <div class="rail-block__track">
@@ -263,6 +287,7 @@ function markup() {
         <div class="stripe"></div>
       </div>
     `,
+
     levelSelect: `
       <div class="screen-frame">
         <div class="stripe"></div>
@@ -286,6 +311,7 @@ function markup() {
         <div class="stripe"></div>
       </div>
     `,
+
     gameplay: `
       <div class="screen-frame screen-frame--gameplay">
         <div class="stripe"></div>
@@ -368,6 +394,7 @@ function markup() {
         <div class="stripe"></div>
       </div>
     `,
+
     complete: `
       <div class="screen-frame">
         <div class="stripe"></div>
@@ -406,6 +433,7 @@ function markup() {
         <div class="stripe"></div>
       </div>
     `,
+
     fail: `
       <div class="screen-frame">
         <div class="stripe"></div>
@@ -453,17 +481,21 @@ export function initScreens(callbacks) {
   roots.GAMEPLAY.innerHTML = templates.gameplay;
   roots.LEVEL_COMPLETE.innerHTML = templates.complete;
   roots.LEVEL_FAIL.innerHTML = templates.fail;
+
   const resultTimers = [];
   let gameplayCalloutTimer = 0;
   let gameplayCenterOverlayTimer = 0;
 
   const refs = {
     homeContinueBtn: document.getElementById("homeContinueBtn"),
+
     calibrationVideo: document.getElementById("calibrationVideo"),
     calibrationOverlay: document.getElementById("calibrationOverlay"),
     calibrationPinchDot: document.getElementById("calibrationPinchDot"),
     calibrationRecDot: document.getElementById("calibrationRecDot"),
     calibrationFeedLabel: document.getElementById("calibrationFeedLabel"),
+    calibrationPhysicsCanvas: document.getElementById("calibrationPhysicsCanvas"),
+    calibrationVfxCanvas: document.getElementById("calibrationVfxCanvas"),
     calibrationGuideCopy: document.getElementById("calibrationGuideCopy"),
     calibrationGuideProgress: document.getElementById("calibrationGuideProgress"),
     calibrationDemoStatus: document.getElementById("calibrationDemoStatus"),
@@ -477,11 +509,12 @@ export function initScreens(callbacks) {
     calibrationStepPullState: document.getElementById("calibrationStepPullState"),
     calibrationStepRelease: document.getElementById("calibrationStepRelease"),
     calibrationStepReleaseState: document.getElementById("calibrationStepReleaseState"),
-    calibrationTrainingHand: document.getElementById("calibrationTrainingHand"),
     calibrationTrainingCaption: document.getElementById("calibrationTrainingCaption"),
     calibrationMuteBtn: document.getElementById("calibrationMuteBtn"),
     enterSiteBtn: document.getElementById("enterSiteBtn"),
+
     levelCardGrid: document.getElementById("levelCardGrid"),
+
     completeLevelLabel: document.getElementById("completeLevelLabel"),
     completeHeadline: document.getElementById("completeHeadline"),
     completeTagline: document.getElementById("completeTagline"),
@@ -492,14 +525,17 @@ export function initScreens(callbacks) {
     completeNextBtn: document.getElementById("completeNextBtn"),
     completeFlash: document.getElementById("completeFlash"),
     completeConfetti: document.getElementById("completeConfetti"),
+
     failLevelLabel: document.getElementById("failLevelLabel"),
     failPigsRemaining: document.getElementById("failPigsRemaining"),
     failScore: document.getElementById("failScore"),
+
     gameplayVideo: document.getElementById("gameplayVideo"),
     gameplayOverlay: document.getElementById("gameplayOverlay"),
     gameplayCamLabel: document.getElementById("gameplayCamLabel"),
     gameplayPinchDot: document.getElementById("gameplayPinchDot"),
     gameplayRecDot: document.getElementById("gameplayRecDot"),
+
     gameplayRefs: {
       gameRoot: document.getElementById("game-root"),
       physicsCanvas: document.getElementById("canvas-physics"),
@@ -538,14 +574,17 @@ export function initScreens(callbacks) {
   return {
     roots,
     refs,
+
     setActiveScreen(nextState) {
       Object.entries(roots).forEach(([name, node]) => {
         node.classList.toggle("is-active", name === nextState);
       });
     },
+
     updateHome({ continueEnabled }) {
       refs.homeContinueBtn.disabled = !continueEnabled;
     },
+
     updateMuteButtons({ muted }) {
       const label = muted ? "UNMUTE" : "MUTE";
       refs.calibrationMuteBtn.textContent = label;
@@ -553,12 +592,14 @@ export function initScreens(callbacks) {
       refs.calibrationMuteBtn.classList.toggle("nav-link--active", muted);
       refs.gameplayRefs.gameplayMuteBtn.classList.toggle("hud-btn--muted", muted);
     },
+
     updateCalibration({ trackerStatus, handDetected, pinchActive, tutorial }) {
       refs.calibrationFeedLabel.textContent = handDetected ? "HAND DETECTED" : "WAITING FOR HAND";
       refs.calibrationGuideCopy.textContent = tutorial.guideCopy;
       refs.calibrationGuideProgress.textContent = tutorial.progressLabel;
       refs.calibrationRailFill.style.width = `${tutorial.progressPct}%`;
       refs.calibrationTrackerCopy.textContent = trackerStatus;
+
       if (refs.calibrationDemoStatus) {
         refs.calibrationDemoStatus.textContent = tutorial.ready
           ? "READY"
@@ -568,26 +609,31 @@ export function initScreens(callbacks) {
               ? "LIVE"
               : "WAIT";
       }
+
       refs.calibrationPinchDot?.classList.toggle("webcam-window__pinch--active", pinchActive);
       refs.calibrationRecDot?.classList.toggle("webcam-window__rec--active", handDetected);
+
       applyTutorialStep(
         refs.calibrationStepHand,
         refs.calibrationStepHandState,
         tutorial.handDone,
         tutorial.activeStep === 1,
       );
+
       applyTutorialStep(
         refs.calibrationStepZone,
         refs.calibrationStepZoneState,
         tutorial.zoneDone,
         tutorial.activeStep === 2,
       );
+
       applyTutorialStep(
         refs.calibrationStepPull,
         refs.calibrationStepPullState,
         tutorial.pullDone,
         tutorial.activeStep === 3,
       );
+
       applyTutorialStep(
         refs.calibrationStepRelease,
         refs.calibrationStepReleaseState,
@@ -595,17 +641,15 @@ export function initScreens(callbacks) {
         tutorial.activeStep === 4,
       );
 
-      refs.calibrationTrainingHand.classList.toggle("calibration-demo__hand--visible", tutorial.handVisible);
-      refs.calibrationTrainingHand.classList.toggle("calibration-demo__hand--pinched", pinchActive);
-      refs.calibrationTrainingHand.classList.toggle("calibration-demo__hand--in-zone", tutorial.inZone);
-      refs.calibrationTrainingHand.style.left = `${tutorial.handX}px`;
-      refs.calibrationTrainingHand.style.top = `${tutorial.handY}px`;
       refs.calibrationTrainingCaption.textContent = tutorial.caption;
       refs.enterSiteBtn.disabled = !tutorial.ready;
+      refs.enterSiteBtn.classList.toggle("calibration-demo__enter-final--visible", tutorial.ready);
     },
+
     renderCalibrationOverlay({ hand, pinchActive }) {
       drawHandSkeleton(refs.calibrationOverlay, hand, pinchActive);
     },
+
     renderLevelSelect({ levels, currentLevelId, saveHelpers }) {
       buildLevelCards({
         container: refs.levelCardGrid,
@@ -615,17 +659,22 @@ export function initScreens(callbacks) {
         onSelect: callbacks.onSelectLevel,
       });
     },
+
     updateLevelComplete({ levelId, score, par, stars, birdsRemaining, hasNextLevel }) {
       clearTimers(resultTimers);
+
       refs.completeLevelLabel.textContent = `LEVEL ${String(levelId).padStart(2, "0")}`;
+
       refs.completeHeadline.textContent =
         stars >= 3 ? "SITE CLEARED" : stars === 2 ? "STRUCTURE DOWN" : "TARGET COMPLETE";
+
       refs.completeTagline.textContent =
         stars >= 3
           ? "CLEAN RELEASE. CLEAN COLLAPSE. CLEAN FINISH."
           : stars === 2
             ? "THE TARGET FELL. THE TIMING CAN STILL GET SHARPER."
             : "THE OBJECTIVE IS DOWN. EFFICIENCY COMES NEXT.";
+
       refs.completeStars.innerHTML = renderStarMarkup(stars);
       refs.completeScore.textContent = "0";
       refs.completePar.textContent = par.toLocaleString();
@@ -640,6 +689,7 @@ export function initScreens(callbacks) {
         const left = 8 + (index % 6) * 16 + Math.random() * 8;
         const delay = (index % 3) * 90;
         const drift = (Math.random() * 48 - 24).toFixed(1);
+
         return `
           <span
             class="confetti-bit"
@@ -652,28 +702,34 @@ export function initScreens(callbacks) {
         const timer = window.setTimeout(() => {
           star.classList.add("is-visible");
         }, CONSTANTS.STAR_REVEAL_INTERVAL_MS * index);
+
         resultTimers.push(timer);
       });
 
       animateCount(refs.completeScore, score, CONSTANTS.SCORE_COUNTUP_MS);
     },
+
     updateLevelFail({ levelId, score, pigsRemaining }) {
       refs.failLevelLabel.textContent = `LEVEL ${String(levelId).padStart(2, "0")}`;
       refs.failPigsRemaining.textContent = String(pigsRemaining);
       refs.failScore.textContent = score.toLocaleString();
     },
+
     updateGameplayCamera({ trackerStatus, handDetected, pinchActive }) {
       refs.gameplayCamLabel.textContent = trackerStatus;
       refs.gameplayRecDot.classList.toggle("webcam-window__rec--active", handDetected);
       refs.gameplayPinchDot.classList.toggle("webcam-window__pinch--active", pinchActive);
     },
+
     renderGameplayOverlay({ hand, pinchActive }) {
       drawHandSkeleton(refs.gameplayOverlay, hand, pinchActive);
     },
+
     clearWebcamOverlays() {
       clearOverlay(refs.calibrationOverlay);
       clearOverlay(refs.gameplayOverlay);
     },
+
     setGameplayCallout({ text = "", tone = "default" }) {
       window.clearTimeout(gameplayCalloutTimer);
       const node = refs.gameplayRefs.gameplayCallout;
@@ -687,17 +743,21 @@ export function initScreens(callbacks) {
 
       node.classList.remove("is-visible", "gameplay-callout--celebration", "gameplay-callout--danger");
       node.textContent = text;
+
       if (tone === "celebration") {
         node.classList.add("gameplay-callout--celebration");
       } else if (tone === "danger") {
         node.classList.add("gameplay-callout--danger");
       }
+
       void node.offsetWidth;
       node.classList.add("is-visible");
+
       gameplayCalloutTimer = window.setTimeout(() => {
         node.classList.remove("is-visible", "gameplay-callout--celebration", "gameplay-callout--danger");
       }, 1800);
     },
+
     setGameplayCenterOverlay({ text = "", tone = "default", durationMs = 900 }) {
       window.clearTimeout(gameplayCenterOverlayTimer);
       const node = refs.gameplayRefs.gameplayCenterOverlay;
@@ -711,26 +771,33 @@ export function initScreens(callbacks) {
 
       node.classList.remove("is-visible", "gameplay-center-overlay--danger");
       node.textContent = text;
+
       if (tone === "danger") {
         node.classList.add("gameplay-center-overlay--danger");
       }
+
       void node.offsetWidth;
       node.classList.add("is-visible");
+
       gameplayCenterOverlayTimer = window.setTimeout(() => {
         node.classList.remove("is-visible", "gameplay-center-overlay--danger");
       }, durationMs);
     },
+
     updateGameplayPrompt(text) {
       if (refs.gameplayRefs.gameplayPrompt) {
         refs.gameplayRefs.gameplayPrompt.textContent = text;
       }
     },
+
     attachSharedStream(stream) {
       [refs.calibrationVideo, refs.gameplayVideo].forEach((video) => {
         if (!video) return;
+
         if (video.srcObject !== stream) {
           video.srcObject = stream;
         }
+
         video.play().catch(() => {});
       });
     },

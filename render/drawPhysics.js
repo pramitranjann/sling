@@ -103,7 +103,8 @@ function drawBlocks(ctx, scene, palette) {
     const gray = Math.round(154 - damage * 40);
 
     ctx.save();
-    ctx.translate(block.position.x, block.position.y);
+    const renderYOffset = scene.renderYOffset ?? 0;
+    ctx.translate(block.position.x, block.position.y + renderYOffset);
     ctx.rotate(block.angle);
 
     ctx.fillStyle = `rgb(${gray}, ${gray - 6}, ${gray - 12})`;
@@ -123,7 +124,8 @@ function drawBlocks(ctx, scene, palette) {
 
 function drawDeadPig(ctx, pig, palette) {
   ctx.save();
-  ctx.translate(pig.position.x, pig.position.y);
+  const renderYOffset = scene.renderYOffset ?? 0;
+  ctx.translate(pig.position.x, pig.position.y + renderYOffset);
   ctx.fillStyle = palette.pigHit;
   ctx.globalAlpha = 0.6;
   ctx.fillRect(-15, -8, 30, 16);
@@ -141,7 +143,8 @@ function drawPigs(ctx, scene, palette) {
     const healthRatio = Math.max(pig.health / pig.maxHealth, 0);
 
     ctx.save();
-    ctx.translate(pig.position.x, pig.position.y);
+    const renderYOffset = scene.renderYOffset ?? 0;
+    ctx.translate(pig.position.x, pig.position.y + renderYOffset);
     ctx.rotate(pig.angle);
 
     ctx.fillStyle = healthRatio < 1 ? palette.pigHit : palette.pig;
@@ -399,7 +402,10 @@ export function drawScene({ scene, physicsCtx, vfxCtx, palette }) {
   physicsCtx.clearRect(0, 0, CONSTANTS.CANVAS_W, CONSTANTS.CANVAS_H);
   vfxCtx.clearRect(0, 0, CONSTANTS.CANVAS_W, CONSTANTS.CANVAS_H);
 
-  drawGround(physicsCtx, palette);
+  if (!scene.hideGround) {
+    drawGround(physicsCtx, palette);
+  }
+
   drawSlingshot(physicsCtx, palette);
   drawSlingshotBand(physicsCtx, scene, palette);
   drawBlocks(physicsCtx, scene, palette);

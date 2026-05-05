@@ -67,6 +67,10 @@ function createPig(scene, x, y, variant) {
   body.maxHealth = CONSTANTS.PIG_HEALTH[variant];
   body.dead = false;
 
+    // Keep pigs stable before the player launches.
+
+  Matter.Sleeping.set(body, true);
+  
   return body;
 }
 
@@ -110,6 +114,18 @@ function placePigOnSupport(scene, pig) {
   });
   scene.Matter.Body.setVelocity(pig, { x: 0, y: 0 });
   scene.Matter.Body.setAngularVelocity(pig, 0);
+
+   // Keep pig stable until launch.
+
+  scene.Matter.Sleeping.set(pig, true);
+}
+
+function wakePigs(scene) {
+  scene.pigs.forEach((pig) => {
+    if (!pig.dead) {
+      scene.Matter.Sleeping.set(pig, false);
+    }
+  });
 }
 
 function createBall(scene, variant) {
@@ -672,6 +688,8 @@ function launch(scene) {
   scene.Matter.Body.setPosition(ball, scene.pull.position);
   scene.Matter.Body.setVelocity(ball, getLaunchVelocity(scene.pull.vector, scene.pull.distance));
   scene.Matter.World.add(scene.world, ball);
+
+  wakePigs(scene);
 
   scene.currentBall = ball;
   scene.subState = "FLYING";
