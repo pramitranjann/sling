@@ -500,21 +500,24 @@ function transition(nextState, data = {}) {
     return;
   }
 
-  if (nextState === APP_STATES.CALIBRATION) {
-    audio.startAmbientHum();
-    resetCalibrationProgress();
-    mountCalibrationScene();
+if (nextState === APP_STATES.CALIBRATION) {
+  audio.startAmbientHum();
+  resetCalibrationProgress();
 
-    ui.updateCalibration({
-      trackerStatus,
-      handDetected: false,
-      pinchActive: false,
-      tutorial: buildCalibrationTutorial(makeGestureFrame()),
-    });
+  state.calibration.targetHitPassed = false;
 
-    void ensureGestureBoot();
-    return;
-  }
+  mountCalibrationScene();
+
+  ui.updateCalibration({
+    trackerStatus,
+    handDetected: false,
+    pinchActive: false,
+    tutorial: buildCalibrationTutorial(makeGestureFrame()),
+  });
+
+  void ensureGestureBoot();
+  return;
+}
 
   if (nextState === APP_STATES.LEVEL_SELECT) {
     audio.stopAmbientHum();
@@ -802,22 +805,28 @@ function frame(now) {
       handleGestureFrame(calibrationScene, gestureFrame);
       calibrationScene.gesture.trackerStatus = trackerStatus;
       stepPhysicsScene(calibrationScene, deltaMs);
+      
 
-const calibrationTargetDestroyed =
-  calibrationScene.pigs?.every((pig) => pig.dead) ||
+const calibrationTargetHit =
+  calibrationScene.pigs?.some((pig) => {
+    const health = pig.health ?? pig.maxHealth ?? 1;
+    const maxHealth = pig.maxHealth ?? 1;
+
+    return pig.dead || health < maxHealth;
+  }) ||
   calibrationScene.subState === "SITE_CLEAR";
 
-if (calibrationTargetDestroyed) {
+if (calibrationTargetHit) {
   state.calibration.targetHitPassed = true;
 }
 
 const shouldReloadTrainingBall =
-  calibrationScene.subState === "SHOT_DONE" ||
-  calibrationScene.subState === "OUT_OF_BIRDS";
+  calibrationScene.subState === "OUT_OF_BIRDS" &&
+  !state.calibration.targetHitPassed;
 
-      if (shouldReloadTrainingBall) {
-        queueCalibrationReload(900);
-      }
+if (shouldReloadTrainingBall) {
+  queueCalibrationReload(5000);
+}
 
       renderCalibrationScene();
     }

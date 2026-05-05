@@ -122,7 +122,7 @@ function drawBlocks(ctx, scene, palette) {
   });
 }
 
-function drawDeadPig(ctx, pig, palette) {
+function drawDeadPig(ctx, pig, palette, scene) {
   ctx.save();
   const renderYOffset = scene.renderYOffset ?? 0;
   ctx.translate(pig.position.x, pig.position.y + renderYOffset);
@@ -134,10 +134,10 @@ function drawDeadPig(ctx, pig, palette) {
 
 function drawPigs(ctx, scene, palette) {
   scene.pigs.forEach((pig) => {
-    if (pig.dead) {
-      drawDeadPig(ctx, pig, palette);
-      return;
-    }
+   if (pig.dead) {
+  drawDeadPig(ctx, pig, palette, scene);
+  return;
+}
 
     const size = CONSTANTS.PIG_SIZES[pig.pigVariant] ?? CONSTANTS.PIG_SIZES.standard;
     const healthRatio = Math.max(pig.health / pig.maxHealth, 0);
