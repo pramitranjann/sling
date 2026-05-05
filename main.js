@@ -455,14 +455,16 @@ function destroyScene() {
   destroyPhysicsScene(scene);
   scene = null;
 }
+
 function mountLevel(levelId) {
-  const level = getLevelById(levels, levelId) ?? levels[0] ?? null;
+  const level = getLevelById(levels, levelId);
   if (!level) return;
   destroyScene();
   state.levelId = level.id;
   scene = createPhysicsScene(level, {
-    onEvent: handleSceneAudioAndCallouts,
+    onEvent: audio.handleSceneEvent,
   });
+  scene.renderYOffset = 50;
   scene.gesture.trackerStatus = trackerStatus;
   lastFrameTime = 0;
   renderGameplay();
@@ -801,20 +803,17 @@ function frame(now) {
       calibrationScene.gesture.trackerStatus = trackerStatus;
       stepPhysicsScene(calibrationScene, deltaMs);
 
-      const calibrationTargetHit =
-  calibrationScene.pigs?.some((pig) => pig.dead || pig.health < pig.maxHealth) ||
+const calibrationTargetDestroyed =
+  calibrationScene.pigs?.every((pig) => pig.dead) ||
   calibrationScene.subState === "SITE_CLEAR";
 
-if (calibrationTargetHit) {
+if (calibrationTargetDestroyed) {
   state.calibration.targetHitPassed = true;
 }
 
-      const shouldReloadTrainingBall =
-        calibrationScene.subState === "FLYING" ||
-        calibrationScene.subState === "SHOT_DONE" ||
-        calibrationScene.subState === "SETTLING" ||
-        calibrationScene.subState === "OUT_OF_BIRDS" ||
-        calibrationScene.subState === "SITE_CLEAR";
+const shouldReloadTrainingBall =
+  calibrationScene.subState === "SHOT_DONE" ||
+  calibrationScene.subState === "OUT_OF_BIRDS";
 
       if (shouldReloadTrainingBall) {
         queueCalibrationReload(900);
