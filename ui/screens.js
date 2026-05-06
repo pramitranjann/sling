@@ -161,7 +161,12 @@ function markup() {
           <header class="screen-bar">
             <button id="calibrationBackBtn" class="nav-link" type="button">← BACK</button>
             <span class="screen-bar__title">CALIBRATION</span>
-            <button id="calibrationMuteBtn" class="nav-link nav-link--button" type="button">MUTE</button>
+            <div class="screen-bar__controls">
+              <button id="calibrationSkipBtn" class="nav-link nav-link--button" type="button" hidden>
+                SKIP TRAINING
+              </button>
+              <button id="calibrationMuteBtn" class="nav-link nav-link--button" type="button">MUTE</button>
+            </div>
           </header>
 
           <div class="screen-content calibration-shell">
@@ -511,6 +516,7 @@ export function initScreens(callbacks) {
     calibrationStepReleaseState: document.getElementById("calibrationStepReleaseState"),
     calibrationTrainingCaption: document.getElementById("calibrationTrainingCaption"),
     calibrationMuteBtn: document.getElementById("calibrationMuteBtn"),
+    calibrationSkipBtn: document.getElementById("calibrationSkipBtn"),
     enterSiteBtn: document.getElementById("enterSiteBtn"),
 
     levelCardGrid: document.getElementById("levelCardGrid"),
@@ -561,6 +567,7 @@ export function initScreens(callbacks) {
   refs.homeContinueBtn.addEventListener("click", callbacks.onContinue);
   document.getElementById("calibrationBackBtn").addEventListener("click", callbacks.onBackHome);
   refs.calibrationMuteBtn.addEventListener("click", callbacks.onToggleMute);
+  refs.calibrationSkipBtn.addEventListener("click", callbacks.onSkipTraining);
   refs.enterSiteBtn.addEventListener("click", callbacks.onEnterSite);
   document.getElementById("levelSelectBackBtn").addEventListener("click", callbacks.onBackHome);
   document.getElementById("completeRetryBtn").addEventListener("click", callbacks.onRetryCurrent);
@@ -593,12 +600,13 @@ export function initScreens(callbacks) {
       refs.gameplayRefs.gameplayMuteBtn.classList.toggle("hud-btn--muted", muted);
     },
 
-    updateCalibration({ trackerStatus, handDetected, pinchActive, tutorial }) {
+    updateCalibration({ trackerStatus, handDetected, pinchActive, tutorial, canSkip = false }) {
       refs.calibrationFeedLabel.textContent = handDetected ? "HAND DETECTED" : "WAITING FOR HAND";
       refs.calibrationGuideCopy.textContent = tutorial.guideCopy;
       refs.calibrationGuideProgress.textContent = tutorial.progressLabel;
       refs.calibrationRailFill.style.width = `${tutorial.progressPct}%`;
       refs.calibrationTrackerCopy.textContent = trackerStatus;
+      refs.calibrationSkipBtn.hidden = !canSkip;
 
       if (refs.calibrationDemoStatus) {
         refs.calibrationDemoStatus.textContent = tutorial.ready

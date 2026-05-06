@@ -27,18 +27,18 @@ function drawGround(ctx, palette) {
   ctx.fillRect(0, CONSTANTS.CANVAS_H - 22, CONSTANTS.CANVAS_W, 4);
 }
 
-function drawSlingshot(ctx, palette) {
+function drawSlingshot(ctx, palette, renderYOffset = 0) {
   const postWidth = 16;
   const postHeight = 166;
   const forkWidth = 6;
   const forkHeight = 14;
   const pillars = [
-    { x: CONSTANTS.BAND_LEFT.x - 12, y: 576, w: postWidth, h: postHeight },
-    { x: CONSTANTS.BAND_RIGHT.x - 12, y: 576, w: postWidth, h: postHeight },
+    { x: CONSTANTS.BAND_LEFT.x - 12, y: 576 + renderYOffset, w: postWidth, h: postHeight },
+    { x: CONSTANTS.BAND_RIGHT.x - 12, y: 576 + renderYOffset, w: postWidth, h: postHeight },
   ];
   const forks = [
-    { x: CONSTANTS.BAND_LEFT.x - 18, y: 572, w: forkWidth, h: forkHeight },
-    { x: CONSTANTS.BAND_RIGHT.x + 4, y: 572, w: forkWidth, h: forkHeight },
+    { x: CONSTANTS.BAND_LEFT.x - 18, y: 572 + renderYOffset, w: forkWidth, h: forkHeight },
+    { x: CONSTANTS.BAND_RIGHT.x + 4, y: 572 + renderYOffset, w: forkWidth, h: forkHeight },
   ];
 
   ctx.save();
@@ -265,29 +265,33 @@ function drawCurrentBall(ctx, scene, palette) {
 }
 
 function drawSlingshotBand(ctx, scene, palette) {
+  const renderYOffset = scene.renderYOffset ?? 0;
   const target = scene.band?.position ?? CONSTANTS.SLINGSHOT_ORIGIN;
   const stretch = scene.band?.stretch ?? 0;
   const controlOffsetX = stretch * 20;
   const controlOffsetY = stretch * 8;
+  const leftBandY = CONSTANTS.BAND_LEFT.y + renderYOffset;
+  const rightBandY = CONSTANTS.BAND_RIGHT.y + renderYOffset;
+  const targetY = target.y + renderYOffset;
 
   ctx.save();
   ctx.strokeStyle = palette.black;
   ctx.lineWidth = 3 + stretch * 2;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(CONSTANTS.BAND_LEFT.x, CONSTANTS.BAND_LEFT.y);
+  ctx.moveTo(CONSTANTS.BAND_LEFT.x, leftBandY);
   ctx.quadraticCurveTo(
     (CONSTANTS.BAND_LEFT.x + target.x) * 0.5 - controlOffsetX,
-    (CONSTANTS.BAND_LEFT.y + target.y) * 0.5 + controlOffsetY,
+    (leftBandY + targetY) * 0.5 + controlOffsetY,
     target.x,
-    target.y,
+    targetY,
   );
-  ctx.moveTo(CONSTANTS.BAND_RIGHT.x, CONSTANTS.BAND_RIGHT.y);
+  ctx.moveTo(CONSTANTS.BAND_RIGHT.x, rightBandY);
   ctx.quadraticCurveTo(
     (CONSTANTS.BAND_RIGHT.x + target.x) * 0.5 + controlOffsetX,
-    (CONSTANTS.BAND_RIGHT.y + target.y) * 0.5 + controlOffsetY,
+    (rightBandY + targetY) * 0.5 + controlOffsetY,
     target.x,
-    target.y,
+    targetY,
   );
   ctx.stroke();
 
@@ -295,9 +299,9 @@ function drawSlingshotBand(ctx, scene, palette) {
     ctx.strokeStyle = "rgba(255, 209, 0, 0.3)";
     ctx.lineWidth = 1 + stretch;
     ctx.beginPath();
-    ctx.moveTo(CONSTANTS.BAND_LEFT.x, CONSTANTS.BAND_LEFT.y);
-    ctx.lineTo(target.x, target.y);
-    ctx.lineTo(CONSTANTS.BAND_RIGHT.x, CONSTANTS.BAND_RIGHT.y);
+    ctx.moveTo(CONSTANTS.BAND_LEFT.x, leftBandY);
+    ctx.lineTo(target.x, targetY);
+    ctx.lineTo(CONSTANTS.BAND_RIGHT.x, rightBandY);
     ctx.stroke();
   }
   ctx.restore();
@@ -306,6 +310,7 @@ function drawSlingshotBand(ctx, scene, palette) {
 function drawTrajectoryArc(ctx, scene, palette) {
   const points = scene.trajectoryPoints;
   if (!points || points.length < 2) return;
+  const renderYOffset = scene.renderYOffset ?? 0;
 
   ctx.save();
   ctx.strokeStyle = palette.black;
@@ -313,10 +318,10 @@ function drawTrajectoryArc(ctx, scene, palette) {
   ctx.lineCap = "round";
   ctx.setLineDash([2, 10]);
   ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
+  ctx.moveTo(points[0].x, points[0].y + renderYOffset);
 
   for (let index = 1; index < points.length; index += 1) {
-    ctx.lineTo(points[index].x, points[index].y);
+    ctx.lineTo(points[index].x, points[index].y + renderYOffset);
   }
 
   ctx.stroke();
@@ -341,6 +346,7 @@ function drawFragments(ctx, scene, palette) {
 }
 
 function drawShockwaves(ctx, scene, palette) {
+  const renderYOffset = scene.renderYOffset ?? 0;
   scene.shockwaves.forEach((wave) => {
     const age = Math.min((performance.now() - wave.startedAt) / CONSTANTS.SHOCKWAVE_DURATION_MS, 1);
     const radius = wave.radius * age;
@@ -350,7 +356,7 @@ function drawShockwaves(ctx, scene, palette) {
     ctx.globalAlpha = 1 - age;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(wave.x, wave.y, radius, 0, Math.PI * 2);
+    ctx.arc(wave.x, wave.y + renderYOffset, radius, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
   });
@@ -362,6 +368,7 @@ function drawPinchZoneRing(ctx, scene, palette) {
   const pulse = Math.sin(performance.now() / 180) * 6;
   const radius = 60 + pulse;
   const opacity = scene.dragSource === "gesture" ? 0.95 : 0.45;
+  const renderYOffset = scene.renderYOffset ?? 0;
 
   ctx.save();
   ctx.setLineDash([4, 4]);
@@ -371,7 +378,7 @@ function drawPinchZoneRing(ctx, scene, palette) {
   ctx.beginPath();
   ctx.arc(
     CONSTANTS.SLINGSHOT_ORIGIN.x,
-    CONSTANTS.SLINGSHOT_ORIGIN.y,
+    CONSTANTS.SLINGSHOT_ORIGIN.y + renderYOffset,
     radius,
     0,
     Math.PI * 2,
@@ -386,6 +393,7 @@ function drawHandCursor(ctx, scene, palette) {
       ? scene.gesture?.lockPoint
       : scene.gesture?.handCenter;
   if (!handCenter) return;
+  const renderYOffset = scene.renderYOffset ?? 0;
 
   ctx.save();
   ctx.strokeStyle = scene.gesture.pinchActive ? palette.yellow : palette.black;
@@ -393,10 +401,10 @@ function drawHandCursor(ctx, scene, palette) {
   ctx.lineWidth = 2;
   ctx.globalAlpha = scene.gesture.locked || scene.gesture.inZone ? 1 : 0.7;
   ctx.beginPath();
-  ctx.arc(handCenter.x, handCenter.y, 10, 0, Math.PI * 2);
+  ctx.arc(handCenter.x, handCenter.y + renderYOffset, 10, 0, Math.PI * 2);
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(handCenter.x, handCenter.y, 2.5, 0, Math.PI * 2);
+  ctx.arc(handCenter.x, handCenter.y + renderYOffset, 2.5, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -409,7 +417,7 @@ export function drawScene({ scene, physicsCtx, vfxCtx, palette }) {
     drawGround(physicsCtx, palette);
   }
 
-  drawSlingshot(physicsCtx, palette);
+  drawSlingshot(physicsCtx, palette, scene.renderYOffset ?? 0);
   drawSlingshotBand(physicsCtx, scene, palette);
   drawBlocks(physicsCtx, scene, palette);
   drawPigs(physicsCtx, scene, palette);

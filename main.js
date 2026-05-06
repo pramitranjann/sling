@@ -50,6 +50,7 @@ let calibrationScene = null;
 let calibrationPhysicsCtx = null;
 let calibrationVfxCtx = null;
 let calibrationReloadTimer = 0;
+let outcomeTransitionTimer = 0;
 
 let animationFrame = 0;
 let lastFrameTime = 0;
@@ -116,6 +117,7 @@ const CALIBRATION_LEVEL = {
 
 const CALIBRATION_RENDER_Y_OFFSET = 50;
 const GAMEPLAY_RENDER_Y_OFFSET = 10;
+const OUTCOME_SETTLE_DELAY_MS = 450;
 
 function pickRandom(items) {
   return items[Math.floor(Math.random() * items.length)] ?? "";
@@ -134,6 +136,20 @@ function hideBootStatus() {
 function resetGameplayFeedback() {
   ui?.setGameplayCallout({ text: "" });
   ui?.setGameplayCenterOverlay({ text: "" });
+}
+
+function resetCalibrationAttemptProgress() {
+  state.calibration.zonePassed = false;
+  state.calibration.pinchPassed = false;
+  state.calibration.pullPassed = false;
+  state.calibration.releasePassed = false;
+  state.calibration.targetHitPassed = false;
+}
+
+function clearOutcomeTransitionTimer() {
+  if (!outcomeTransitionTimer) return;
+  window.clearTimeout(outcomeTransitionTimer);
+  outcomeTransitionTimer = 0;
 }
 
 function setTrackerStatus(message) {
@@ -277,6 +293,9 @@ function updateHomeScreen() {
 function buildCalibrationTutorial(gestureFrame) {
   const calibrationSlingOffsetY = 240;
   const handDetected = Boolean(gestureFrame.activeHand);
+  const shotReleased = state.calibration.releasePassed;
+  const targetConfirmed = state.calibration.targetHitPassed;
+  const trainingComplete = shotReleased && targetConfirmed;
   const pullDistance = gestureFrame.handCenter
     ? Math.hypot(
         CONSTANTS.SLINGSHOT_ORIGIN.x - gestureFrame.handCenter.x,
@@ -325,19 +344,23 @@ function buildCalibrationTutorial(gestureFrame) {
       ? "HOLD ONE HAND CLEARLY IN FRAME UNTIL TRACKING STABILIZES."
       : activeStep === 2
         ? "MOVE INTO THE SLING ZONE, THEN PINCH TO LOCK."
-        : activeStep === 3
-          ? "KEEP THE PINCH CLOSED, THEN PULL BACK TO BUILD TENSION."
-          : state.calibration.releasePassed
-            ? "TRAINING SHOT COMPLETE. YOU'RE READY TO ENTER THE SITE."
+      : activeStep === 3
+        ? "KEEP THE PINCH CLOSED, THEN PULL BACK TO BUILD TENSION."
+        : trainingComplete
+          ? "TRAINING SHOT COMPLETE. YOU'RE READY TO ENTER THE SITE."
+          : shotReleased
+            ? "TRACK THE SHOT. HIT THE TARGET TO COMPLETE TRAINING."
             : "OPEN YOUR FINGERS CLEANLY TO RELEASE THE TRAINING SHOT.";
 
-  const caption = !handDetected
-    ? "WAITING FOR HAND INPUT."
-    : !gestureFrame.pinchState.active
-      ? "MOVE TO THE SLING, THEN PINCH TO LOCK."
-      : pullDistance < 42
-        ? "PULL FARTHER BACK WHILE HOLDING THE PINCH."
-        : "OPEN YOUR FINGERS TO RELEASE.";
+  const caption = shotReleased && !targetConfirmed
+    ? "SHOT AWAY. HOLD STEADY WHILE THE TRAINING BALL RESETS."
+    : !handDetected
+      ? "WAITING FOR HAND INPUT."
+      : !gestureFrame.pinchState.active
+        ? "MOVE TO THE SLING, THEN PINCH TO LOCK."
+        : pullDistance < 42
+          ? "PULL FARTHER BACK WHILE HOLDING THE PINCH."
+          : "OPEN YOUR FINGERS TO RELEASE.";
 
   return {
     handDone: state.calibration.handPassed,
@@ -352,10 +375,12 @@ function buildCalibrationTutorial(gestureFrame) {
     handY: CONSTANTS.SLINGSHOT_ORIGIN.y - calibrationSlingOffsetY,
     inZone: gestureFrame.inZone,
     progressPct: (completedSteps / 4) * 100,
-    progressLabel: state.calibration.releasePassed
+    progressLabel: trainingComplete
       ? "TRAINING COMPLETE"
+      : shotReleased
+        ? "RESETTING TRAINING SHOT"
       : `STEP ${activeStep} / 4`,
-    ready: state.calibration.releasePassed && state.calibration.targetHitPassed,
+    ready: trainingComplete,
   };
 }
 
@@ -368,6 +393,7 @@ function updateCalibrationScreen(gestureFrame) {
     handDetected,
     pinchActive: gestureFrame.pinchState.active,
     tutorial,
+    canSkip: hasSavedProgress(),
   });
   ui.renderCalibrationOverlay({
     hand: gestureFrame.activeHand,
@@ -465,6 +491,7 @@ function queueCalibrationReload(delayMs = 900) {
   calibrationReloadTimer = window.setTimeout(() => {
     calibrationReloadTimer = 0;
     if (state.current === APP_STATES.CALIBRATION) {
+      resetCalibrationAttemptProgress();
       mountCalibrationScene();
     }
   }, delayMs);
@@ -508,6 +535,8 @@ function transition(nextState, data = {}) {
     destroyCalibrationScene();
   }
 
+  clearOutcomeTransitionTimer();
+
   if (nextState !== APP_STATES.CALIBRATION && nextState !== APP_STATES.GAMEPLAY) {
     ui.clearWebcamOverlays();
   }
@@ -535,6 +564,7 @@ function transition(nextState, data = {}) {
       handDetected: false,
       pinchActive: false,
       tutorial: buildCalibrationTutorial(makeGestureFrame()),
+      canSkip: hasSavedProgress(),
     });
 
     void ensureGestureBoot();
@@ -577,23 +607,34 @@ function finalizeLevelComplete(sceneRef) {
   const nextLevel = getNextLevel(levels, sceneRef.level.id);
 
   writeSave(sceneRef.level.id, stars, finalScore);
-
-  transition(APP_STATES.LEVEL_COMPLETE, {
-    levelId: sceneRef.level.id,
-    score: finalScore,
-    par: sceneRef.level.par,
-    stars,
-    birdsRemaining,
-    hasNextLevel: Boolean(nextLevel),
-  });
+  ui?.setGameplayCenterOverlay({ text: "SITE CLEARED", durationMs: OUTCOME_SETTLE_DELAY_MS + 120 });
+  outcomeTransitionTimer = window.setTimeout(() => {
+    outcomeTransitionTimer = 0;
+    transition(APP_STATES.LEVEL_COMPLETE, {
+      levelId: sceneRef.level.id,
+      score: finalScore,
+      par: sceneRef.level.par,
+      stars,
+      birdsRemaining,
+      hasNextLevel: Boolean(nextLevel),
+    });
+  }, OUTCOME_SETTLE_DELAY_MS);
 }
 
 function finalizeLevelFail(sceneRef) {
-  transition(APP_STATES.LEVEL_FAIL, {
-    levelId: sceneRef.level.id,
-    score: sceneRef.score,
-    pigsRemaining: countRemainingPigs(sceneRef),
+  ui?.setGameplayCenterOverlay({
+    text: "OUT OF CHARGES",
+    tone: "danger",
+    durationMs: OUTCOME_SETTLE_DELAY_MS + 120,
   });
+  outcomeTransitionTimer = window.setTimeout(() => {
+    outcomeTransitionTimer = 0;
+    transition(APP_STATES.LEVEL_FAIL, {
+      levelId: sceneRef.level.id,
+      score: sceneRef.score,
+      pigsRemaining: countRemainingPigs(sceneRef),
+    });
+  }, OUTCOME_SETTLE_DELAY_MS);
 }
 
 function handleStart() {
@@ -611,6 +652,13 @@ function handleContinue() {
 function handleEnterSite() {
   ensureAudioUnlocked();
   audio.playUiConfirm();
+  ensureSaveExists();
+  transition(APP_STATES.LEVEL_SELECT);
+}
+
+function handleSkipTraining() {
+  ensureAudioUnlocked();
+  audio.playUiBack();
   ensureSaveExists();
   transition(APP_STATES.LEVEL_SELECT);
 }
@@ -834,7 +882,11 @@ function frame(now) {
         }) ||
         calibrationScene.subState === "SITE_CLEAR";
 
-      if (calibrationTargetHit) {
+      const calibrationShotResolved =
+        calibrationScene.subState === "OUT_OF_BIRDS" ||
+        calibrationScene.subState === "SITE_CLEAR";
+
+      if (state.calibration.releasePassed && calibrationTargetHit && calibrationShotResolved) {
         state.calibration.targetHitPassed = true;
       }
 
@@ -843,7 +895,7 @@ function frame(now) {
         !state.calibration.targetHitPassed;
 
       if (shouldReloadTrainingBall) {
-        queueCalibrationReload(5000);
+        queueCalibrationReload(1100);
       }
 
       renderCalibrationScene();
@@ -897,6 +949,7 @@ async function boot() {
     onContinue: handleContinue,
     onBackHome: handleBackHome,
     onToggleMute: handleToggleMute,
+    onSkipTraining: handleSkipTraining,
     onEnterSite: handleEnterSite,
     onSelectLevel: handleSelectLevel,
     onRetryCurrent: handleRetryCurrent,
