@@ -142,15 +142,15 @@
             { "type": "2x1", "x": 700, "y": 540 },
             { "type": "2x1", "x": 740, "y": 540 },
             { "type": "2x2", "x": 720, "y": 460 },
-            { "type": "3x1", "x": 720, "y": 388 },
-            { "type": "1x1", "x": 700, "y": 356 },
-            { "type": "1x1", "x": 740, "y": 356 }
+            { "type": "3x1", "x": 720, "y": 400 },
+            { "type": "1x1", "x": 700, "y": 360 },
+            { "type": "1x1", "x": 740, "y": 360 }
           ],
           "pigs": [
             { "variant": "standard",  "x": 720, "y": 668 },
             { "variant": "fortified", "x": 720, "y": 588 },
             { "variant": "standard",  "x": 720, "y": 508 },
-            { "variant": "fortified", "x": 720, "y": 324 }
+            { "variant": "fortified", "x": 720, "y": 388 }
           ]
         }
       ],

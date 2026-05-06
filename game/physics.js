@@ -105,12 +105,15 @@ function placePigOnSupport(scene, pig) {
       return bestTop;
     }
 
-    return Math.min(bestTop, blockTop);
-  }, CONSTANTS.GROUND_VISIBLE_Y);
+    return Math.max(bestTop, blockTop);
+  }, Number.NEGATIVE_INFINITY);
+
+  const safeSupportTop =
+    Number.isFinite(supportTop) ? supportTop : CONSTANTS.GROUND_VISIBLE_Y;
 
   scene.Matter.Body.setPosition(pig, {
     x: pig.position.x,
-    y: supportTop - pigSize.h * 0.5 - CONSTANTS.PIG_SPAWN_CLEARANCE,
+    y: safeSupportTop - pigSize.h * 0.5 - CONSTANTS.PIG_SPAWN_CLEARANCE,
   });
   scene.Matter.Body.setVelocity(pig, { x: 0, y: 0 });
   scene.Matter.Body.setAngularVelocity(pig, 0);

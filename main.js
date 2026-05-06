@@ -667,7 +667,6 @@ function bindPointerInput() {
     const handled = handlePointerEvent(scene, "down", point, event.pointerType);
     if (handled) {
       gameplayRefs.gameRoot.setPointerCapture(event.pointerId);
-      renderGameplay();
     }
   });
 
@@ -681,7 +680,6 @@ function bindPointerInput() {
     };
 
     handlePointerEvent(scene, "move", point, event.pointerType);
-    renderGameplay();
   });
 
   const finishPointer = (event) => {
@@ -697,7 +695,6 @@ function bindPointerInput() {
     if (gameplayRefs.gameRoot.hasPointerCapture(event.pointerId)) {
       gameplayRefs.gameRoot.releasePointerCapture(event.pointerId);
     }
-    renderGameplay();
   };
 
   gameplayRefs.gameRoot.addEventListener("pointerup", finishPointer);
@@ -808,28 +805,27 @@ function frame(now) {
       handleGestureFrame(calibrationScene, gestureFrame);
       calibrationScene.gesture.trackerStatus = trackerStatus;
       stepPhysicsScene(calibrationScene, deltaMs);
-      
 
-const calibrationTargetHit =
-  calibrationScene.pigs?.some((pig) => {
-    const health = pig.health ?? pig.maxHealth ?? 1;
-    const maxHealth = pig.maxHealth ?? 1;
+      const calibrationTargetHit =
+        calibrationScene.pigs?.some((pig) => {
+          const health = pig.health ?? pig.maxHealth ?? 1;
+          const maxHealth = pig.maxHealth ?? 1;
 
-    return pig.dead || health < maxHealth;
-  }) ||
-  calibrationScene.subState === "SITE_CLEAR";
+          return pig.dead || health < maxHealth;
+        }) ||
+        calibrationScene.subState === "SITE_CLEAR";
 
-if (calibrationTargetHit) {
-  state.calibration.targetHitPassed = true;
-}
+      if (calibrationTargetHit) {
+        state.calibration.targetHitPassed = true;
+      }
 
-const shouldReloadTrainingBall =
-  calibrationScene.subState === "OUT_OF_BIRDS" &&
-  !state.calibration.targetHitPassed;
+      const shouldReloadTrainingBall =
+        calibrationScene.subState === "OUT_OF_BIRDS" &&
+        !state.calibration.targetHitPassed;
 
-if (shouldReloadTrainingBall) {
-  queueCalibrationReload(5000);
-}
+      if (shouldReloadTrainingBall) {
+        queueCalibrationReload(5000);
+      }
 
       renderCalibrationScene();
     }
@@ -855,24 +851,6 @@ if (shouldReloadTrainingBall) {
 
   animationFrame = requestAnimationFrame(frame);
 }
-
-  if (state.current === APP_STATES.GAMEPLAY && scene) {
-    handleGestureFrame(scene, gestureFrame);
-    scene.gesture.trackerStatus = trackerStatus;
-    stepPhysicsScene(scene, deltaMs);
-    renderGameplay();
-    updateGameplayCamera(gestureFrame);
-
-    if (!scene.outcomeHandled && scene.subState === "SITE_CLEAR") {
-      scene.outcomeHandled = true;
-      finalizeLevelComplete(scene);
-    } else if (!scene.outcomeHandled && scene.subState === "OUT_OF_BIRDS") {
-      scene.outcomeHandled = true;
-      finalizeLevelFail(scene);
-    }
-  }
-
-  animationFrame = requestAnimationFrame(frame);
 
 
 async function waitForMatter(timeoutMs = 4000) {
@@ -923,11 +901,8 @@ calibrationVfxCtx = ui.refs.calibrationVfxCanvas.getContext("2d");
     hasNextLevel: true,
   });
   ui.updateLevelFail(state.preview.fail);
-transition(APP_STATES.LEVEL_SELECT);
+  transition(APP_STATES.HOME);
 animationFrame = requestAnimationFrame(frame);
-  // transition(APP_STATES.HOME);
-
-  //animationFrame = requestAnimationFrame(frame);
 }
 
 boot().catch((error) => {

@@ -25,14 +25,14 @@ export const CONSTANTS = {
   BAND_LEFT:              { x: 148, y: 572 },
   BAND_RIGHT:             { x: 172, y: 572 },
   MAX_PULL_DIST:          144,    // px — max stretch from origin
-  MAX_LAUNCH_SPEED:       22,     // px/frame at 60fps
+  MAX_LAUNCH_SPEED:       28,     // px/frame at 60fps
   SLINGSHOT_ZONE_RADIUS:  168,    // px — interaction zone around origin
   BAND_SPRING_STIFFNESS:  0.16,
   BAND_SPRING_DAMPING:    0.78,
-  DRAG_SAMPLE_SIZE:       8,
-  GESTURE_LAG_COMPENSATION: 0.06,
+  DRAG_SAMPLE_SIZE:       7,
+  GESTURE_LAG_COMPENSATION: 0.07,
   TOUCH_LAG_COMPENSATION:   0.04,
-  DRAG_RESPONSE:          0.88,
+  DRAG_RESPONSE:          0.91,
   LEVEL_Y_OFFSET:         -48,
   PIG_SPAWN_CLEARANCE:    2,
 

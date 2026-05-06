@@ -189,9 +189,10 @@ function drawBall(ctx, body, palette) {
   if (!body) return;
 
   const radius = body.def?.radius ?? CONSTANTS.BALL.standard.radius;
+  const renderYOffset = body.renderYOffset ?? 0;
 
   ctx.save();
-  ctx.translate(body.position.x, body.position.y);
+  ctx.translate(body.position.x, body.position.y + renderYOffset);
   ctx.rotate(body.angle ?? 0);
 
   ctx.fillStyle = "#2A2828";
@@ -247,11 +248,13 @@ function getBallPreviewBody(scene) {
     position: scene.dragging ? scene.pull.position : CONSTANTS.SLINGSHOT_ORIGIN,
     angle: 0,
     def: CONSTANTS.BALL[variant] ?? CONSTANTS.BALL.standard,
+    renderYOffset: scene.renderYOffset ?? 0,
   };
 }
 
 function drawCurrentBall(ctx, scene, palette) {
   if (scene.currentBall) {
+    scene.currentBall.renderYOffset = scene.renderYOffset ?? 0;
     drawBall(ctx, scene.currentBall, palette);
     return;
   }

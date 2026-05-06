@@ -674,9 +674,10 @@ select {
 
 .level-select-layout {
   display: grid;
-  gap: var(--space-6);
+  gap: 46px;
   justify-items: center;
   align-content: start;
+  padding-top: 34px;
 }
 
 .level-select-copy {
@@ -688,23 +689,36 @@ select {
 }
 
 .level-select-copy .guide-card__title {
-  max-width: 18ch;
-  font-size: clamp(30px, 4.6vw, 54px);
-  line-height: 0.92;
+  max-width: 15ch;
+  font-size: clamp(52px, 6vw, 88px);
+  line-height: 0.86;
+  letter-spacing: var(--tracking-tight);
 }
 
 .level-select-copy .guide-card__copy {
-  max-width: 42ch;
+  max-width: 32ch;
+  font-size: 17px;
+  line-height: 1.35;
 }
 
 .level-card-grid {
   display: grid;
   width: min(1180px, 100%);
   grid-template-columns: repeat(5, 176px);
-  gap: 48px;
+  gap: 56px;
   justify-content: center;
   align-items: start;
   margin-inline: auto;
+}
+
+
+.level-card-grid {
+  position: relative;
+}
+
+.level-card {
+  min-height: 260px;
+  padding: 16px;
 }
 
 .level-card {
@@ -717,6 +731,11 @@ select {
   border: var(--border-primary);
   cursor: pointer;
   text-align: left;
+}
+
+.level-card {
+  position: relative;
+  z-index: 1;
 }
 
 .level-card:hover:not(:disabled) {
@@ -741,6 +760,11 @@ select {
 
 .level-card__name {
   white-space: normal;
+}
+
+.level-card__name {
+  font-size: 26px;
+  line-height: 0.9;
 }
 
 .level-card__badge {
@@ -784,7 +808,13 @@ select {
 .level-card--current {
   background: var(--color-yellow);
   border-width: 3px;
-  animation: level-card-live 1.9s var(--easing-in-out) infinite;
+  transform: translateY(-8px);
+  box-shadow: 7px 7px 0 var(--color-black);
+  animation: none;
+}
+
+.level-card--current:hover:not(:disabled) {
+  transform: translateY(-12px);
 }
 
 .level-card--current .level-card__badge {
@@ -802,8 +832,16 @@ select {
 }
 
 .level-card--completed .level-card__badge {
-  background: var(--color-yellow);
+  background: var(--color-black);
+  color: var(--color-yellow);
+}
+
+.level-card--completed .level-card__name {
   color: var(--color-black);
+}
+
+.level-card--completed .level-card__helper {
+  color: var(--color-text-secondary);
 }
 
 .level-card--unplayed {
