@@ -300,7 +300,7 @@ function markup() {
           <div class="screen-content level-select-layout">
             <div class="level-select-copy">
               <span class="guide-card__eyebrow">UNLOCK PATH</span>
-              <h2 class="guide-card__title">CLEAR EACH SITE.UNLOCK THE NEXT TEST..</h2>
+              <h2 class="guide-card__title">CLEAR EACH SITE. UNLOCK THE NEXT TEST.</h2>
               <p class="guide-card__copy">
                 Select the active site and deploy.
               </p>
@@ -678,7 +678,8 @@ export function initScreens(callbacks) {
       refs.completeStars.innerHTML = renderStarMarkup(stars);
       refs.completeScore.textContent = "0";
       refs.completePar.textContent = par.toLocaleString();
-      refs.completeBonus.textContent = `+${birdsRemaining * 400} RESERVE`;
+      refs.completeBonus.textContent =
+        `+${birdsRemaining * CONSTANTS.BIRDS_REMAINING_BONUS} RESERVE`;
       refs.completeNextBtn.textContent = hasNextLevel ? "NEXT SITE →" : "BACK TO LEVELS";
 
       refs.completeFlash.classList.remove("is-live");

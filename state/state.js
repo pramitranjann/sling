@@ -34,6 +34,7 @@ export const state = {
     pinchPassed: false,
     pullPassed: false,
     releasePassed: false,
+    targetHitPassed: false,
   },
   preview: {
     complete: { levelId: 3, score: 4450, par: 4200, stars: 2, birdsRemaining: 1 },
@@ -94,6 +95,7 @@ export function resetCalibrationProgress() {
   state.calibration.pinchPassed = false;
   state.calibration.pullPassed = false;
   state.calibration.releasePassed = false;
+  state.calibration.targetHitPassed = false;
 }
 
 export function getLevelRecord(levelId) {

@@ -33,6 +33,8 @@ import {
 import { initScreens } from "./ui/screens.js";
 
 const sensorVideo = document.getElementById("sensorVideo");
+const bootStatus = document.getElementById("bootStatus");
+const bootStatusMessage = document.getElementById("bootStatusMessage");
 const palette = readPalette();
 
 let ui = null;
@@ -119,6 +121,21 @@ function pickRandom(items) {
   return items[Math.floor(Math.random() * items.length)] ?? "";
 }
 
+function setBootStatus(message, persistent = true) {
+  if (!bootStatus || !bootStatusMessage) return;
+  bootStatusMessage.textContent = message;
+  bootStatus.classList.toggle("is-visible", persistent);
+}
+
+function hideBootStatus() {
+  bootStatus?.classList.remove("is-visible");
+}
+
+function resetGameplayFeedback() {
+  ui?.setGameplayCallout({ text: "" });
+  ui?.setGameplayCenterOverlay({ text: "" });
+}
+
 function setTrackerStatus(message) {
   trackerStatus = String(message ?? "OFFLINE").toUpperCase();
 }
@@ -170,10 +187,10 @@ function makeGestureFrame() {
   };
 }
 
-function handleSceneAudioAndCallouts(type, detail = {}) {
+function handleSceneEvent(type, detail = {}) {
   audio.handleSceneEvent(type, detail);
 
-  if (!ui) return;
+  if (!ui || state.current !== APP_STATES.GAMEPLAY) return;
 
   switch (type) {
     case "LAUNCH":
@@ -305,7 +322,7 @@ function buildCalibrationTutorial(gestureFrame) {
 
   const guideCopy =
     activeStep === 1
-      ? "HOLD ONE HAND CLEARLY IN FRAME UNTIL TRACKING STABILISES."
+      ? "HOLD ONE HAND CLEARLY IN FRAME UNTIL TRACKING STABILIZES."
       : activeStep === 2
         ? "MOVE INTO THE SLING ZONE, THEN PINCH TO LOCK."
         : activeStep === 3
@@ -434,7 +451,7 @@ function destroyCalibrationScene() {
 function mountCalibrationScene() {
   destroyCalibrationScene();
   calibrationScene = createPhysicsScene(CALIBRATION_LEVEL, {
-    onEvent: audio.handleSceneEvent,
+    onEvent: handleSceneEvent,
   });
   calibrationScene.hideGround = true;
   calibrationScene.renderYOffset = CALIBRATION_RENDER_Y_OFFSET;
@@ -465,11 +482,12 @@ function mountLevel(levelId) {
   destroyScene();
   state.levelId = level.id;
   scene = createPhysicsScene(level, {
-    onEvent: audio.handleSceneEvent,
+    onEvent: handleSceneEvent,
   });
   scene.renderYOffset = GAMEPLAY_RENDER_Y_OFFSET;
   scene.gesture.trackerStatus = trackerStatus;
   lastFrameTime = 0;
+  resetGameplayFeedback();
   renderGameplay();
 }
 
@@ -494,6 +512,10 @@ function transition(nextState, data = {}) {
     ui.clearWebcamOverlays();
   }
 
+  if (nextState !== APP_STATES.GAMEPLAY) {
+    resetGameplayFeedback();
+  }
+
   setAppState(nextState);
   ui.setActiveScreen(nextState);
 
@@ -503,24 +525,21 @@ function transition(nextState, data = {}) {
     return;
   }
 
-if (nextState === APP_STATES.CALIBRATION) {
-  audio.startAmbientHum();
-  resetCalibrationProgress();
+  if (nextState === APP_STATES.CALIBRATION) {
+    audio.startAmbientHum();
+    resetCalibrationProgress();
+    mountCalibrationScene();
 
-  state.calibration.targetHitPassed = false;
+    ui.updateCalibration({
+      trackerStatus,
+      handDetected: false,
+      pinchActive: false,
+      tutorial: buildCalibrationTutorial(makeGestureFrame()),
+    });
 
-  mountCalibrationScene();
-
-  ui.updateCalibration({
-    trackerStatus,
-    handDetected: false,
-    pinchActive: false,
-    tutorial: buildCalibrationTutorial(makeGestureFrame()),
-  });
-
-  void ensureGestureBoot();
-  return;
-}
+    void ensureGestureBoot();
+    return;
+  }
 
   if (nextState === APP_STATES.LEVEL_SELECT) {
     audio.stopAmbientHum();
@@ -864,12 +883,15 @@ async function waitForMatter(timeoutMs = 4000) {
 }
 
 async function boot() {
+  setBootStatus("Loading physics engine.");
   await waitForMatter();
 
+  setBootStatus("Loading level data.");
   const levelPayload = await loadLevelData(new URL("./data/levels.json", import.meta.url));
   levels = levelPayload.levels;
   loadSave();
 
+  setBootStatus("Building control room.");
   ui = initScreens({
     onStart: handleStart,
     onContinue: handleContinue,
@@ -889,8 +911,7 @@ async function boot() {
   physicsCtx = gameplayRefs.physicsCanvas.getContext("2d");
   vfxCtx = gameplayRefs.vfxCanvas.getContext("2d");
   calibrationPhysicsCtx = ui.refs.calibrationPhysicsCanvas.getContext("2d");
-calibrationVfxCtx = ui.refs.calibrationVfxCanvas.getContext("2d");
-
+  calibrationVfxCtx = ui.refs.calibrationVfxCanvas.getContext("2d");
 
   bindPointerInput();
   bindKeyboardShortcuts();
@@ -902,10 +923,12 @@ calibrationVfxCtx = ui.refs.calibrationVfxCanvas.getContext("2d");
   });
   ui.updateLevelFail(state.preview.fail);
   transition(APP_STATES.HOME);
-animationFrame = requestAnimationFrame(frame);
+  hideBootStatus();
+  animationFrame = requestAnimationFrame(frame);
 }
 
 boot().catch((error) => {
   console.error(error);
   cancelAnimationFrame(animationFrame);
+  setBootStatus(error.message || "Boot failed. Check the browser console.", true);
 });
