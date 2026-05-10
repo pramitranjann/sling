@@ -388,6 +388,8 @@ function drawPinchZoneRing(ctx, scene, palette) {
 }
 
 function drawHandCursor(ctx, scene, palette) {
+  if (scene.showHandCursor === false) return;
+
   const handCenter =
     scene.gesture?.locked && scene.dragSource === "gesture"
       ? scene.gesture?.lockPoint

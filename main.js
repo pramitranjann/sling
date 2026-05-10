@@ -51,6 +51,7 @@ let calibrationPhysicsCtx = null;
 let calibrationVfxCtx = null;
 let calibrationReloadTimer = 0;
 let outcomeTransitionTimer = 0;
+let gameplayAnywherePinchHintShown = false;
 
 let animationFrame = 0;
 let lastFrameTime = 0;
@@ -399,6 +400,8 @@ function updateCalibrationScreen(gestureFrame) {
     hand: gestureFrame.activeHand,
     pinchActive: gestureFrame.pinchState.active,
   });
+
+  return tutorial;
 }
 
 function updateGameplayHUD() {
@@ -423,7 +426,7 @@ function updateGameplayHUD() {
 
   const prompt =
     scene.subState === "READY"
-      ? "PINCH AND PULL TO START THE SHOT."
+      ? "PINCH ANYWHERE, THEN PULL BACK TO START THE SHOT."
       : scene.subState === "DRAGGING"
         ? scene.tension > 0.12
           ? "SHOT ARMED. LET GO TO FIRE."
@@ -435,6 +438,19 @@ function updateGameplayHUD() {
 }
 
 function updateGameplayCamera(gestureFrame) {
+  if (
+    scene &&
+    !gameplayAnywherePinchHintShown &&
+    state.current === APP_STATES.GAMEPLAY &&
+    scene.subState === "READY" &&
+    Boolean(gestureFrame.activeHand)
+  ) {
+    ui.setGameplayCallout({
+      text: "NO NEED TO MOVE TO THE SLING. PINCH ANYWHERE, THEN PULL BACK.",
+    });
+    gameplayAnywherePinchHintShown = true;
+  }
+
   ui.updateGameplayCamera({
     trackerStatus,
     handDetected: Boolean(gestureFrame.activeHand),
@@ -482,6 +498,7 @@ function mountCalibrationScene() {
   calibrationScene.hideGround = true;
   calibrationScene.renderYOffset = CALIBRATION_RENDER_Y_OFFSET;
   calibrationScene.gesture.trackerStatus = trackerStatus;
+  calibrationScene.showHandCursor = true;
   lastFrameTime = 0;
   renderCalibrationScene();
 }
@@ -513,6 +530,8 @@ function mountLevel(levelId) {
   });
   scene.renderYOffset = GAMEPLAY_RENDER_Y_OFFSET;
   scene.gesture.trackerStatus = trackerStatus;
+  scene.showHandCursor = false;
+  gameplayAnywherePinchHintShown = false;
   lastFrameTime = 0;
   resetGameplayFeedback();
   renderGameplay();
@@ -901,7 +920,11 @@ function frame(now) {
       renderCalibrationScene();
     }
 
-    updateCalibrationScreen(gestureFrame);
+    const tutorial = updateCalibrationScreen(gestureFrame);
+    if (tutorial.ready && gestureFrame.pinchState?.event === "PINCH_START") {
+      handleEnterSite();
+      return;
+    }
   }
 
   if (state.current === APP_STATES.GAMEPLAY && scene) {
