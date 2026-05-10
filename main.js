@@ -887,6 +887,18 @@ function frame(now) {
   const gestureFrame = buildGestureFrame(now);
 
   if (state.current === APP_STATES.CALIBRATION) {
+    const calibrationReadyForEntry =
+      state.calibration.releasePassed && state.calibration.targetHitPassed;
+    const calibrationPinchConfirm =
+      gestureFrame.pinchState?.event === "PINCH_START" ||
+      gestureFrame.pinchState?.event === "PINCH_HOLD";
+
+    if (calibrationReadyForEntry && calibrationPinchConfirm) {
+      updateCalibrationScreen(gestureFrame);
+      handleEnterSite();
+      return;
+    }
+
     if (calibrationScene) {
       handleGestureFrame(calibrationScene, gestureFrame);
       calibrationScene.gesture.trackerStatus = trackerStatus;
@@ -920,11 +932,7 @@ function frame(now) {
       renderCalibrationScene();
     }
 
-    const tutorial = updateCalibrationScreen(gestureFrame);
-    if (tutorial.ready && gestureFrame.pinchState?.event === "PINCH_START") {
-      handleEnterSite();
-      return;
-    }
+    updateCalibrationScreen(gestureFrame);
   }
 
   if (state.current === APP_STATES.GAMEPLAY && scene) {
