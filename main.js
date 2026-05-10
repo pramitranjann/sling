@@ -896,6 +896,7 @@ function frame(now) {
     if (calibrationReadyForEntry && calibrationPinchConfirm) {
       updateCalibrationScreen(gestureFrame);
       handleEnterSite();
+      animationFrame = requestAnimationFrame(frame);
       return;
     }
 
