@@ -1001,7 +1001,6 @@ export function handleGestureFrame(scene, gestureFrame) {
       scene.handLostReset = false;
       scene.statusText = getReadyTryPrompt(scene);
     }
-    scene.tryActive = true;
   }
 
   if (
